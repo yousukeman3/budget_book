@@ -1,0 +1,21 @@
+{
+  "name": "budget_book",
+  "version": "1.0.0",
+  "main": "コード.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@types/google-apps-script": "^1.0.97",
+    "rollup": "^4.36.0",
+    "rollup-plugin-typescript2": "^0.36.0",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "push": "npm run build && clasp push"
+  }
+}
