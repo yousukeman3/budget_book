@@ -1,7 +1,7 @@
 import { Entry } from "./entryTypes";
 import { loadCategoryConfig } from "../../infrastructure/sheet/configSheet";
 import { loadMethodList } from "../../infrastructure/sheet/configSheet";
-import { ValidationError } from "../error/validationError";
+import { ValidationError } from "../../common/error/validationError";
 
 export function validateEntry(entry: Entry): ValidationError[] {
     const errors: ValidationError[] = [];
