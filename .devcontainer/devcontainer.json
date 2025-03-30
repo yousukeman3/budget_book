@@ -1,0 +1,21 @@
+{
+    "name": "budget_book-dev",
+    "dockerComposeFile": ["../docker-compose.yml"],
+    "service": "app",
+    "workspaceFolder": "/app",
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "esbenp.prettier-vscode",
+          "dbaeumer.vscode-eslint",
+          "Prisma.prisma",
+          "ms-azuretools.vscode-docker"
+        ]
+      }
+    },
+    "remoteEnv": {
+      "NODE_ENV": "development"
+    },
+    "postCreateCommand": "pnpm install"
+}
+  
