@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { PrismaClient, EntryType, DebtType, CategoryType } from '@prisma/client'
 
 const prisma = new PrismaClient()
