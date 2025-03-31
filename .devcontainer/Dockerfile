@@ -1,5 +1,14 @@
 FROM node:18
 
+# pnpm グローバルインストール
+RUN npm install -g pnpm
+
+# /app の用意とパーミッション変更
+RUN mkdir -p /app && chown node:node /app && mkdir -p /home/node/.pnpm-store && chown -R node:node /home/node/.pnpm-store
+
+
+# ワーキングディレクトリを /app に
 WORKDIR /app
 
-RUN npm install -g pnpm
+# すでに存在する UID 1000 / GID 1000 の node ユーザーに切り替え
+USER node

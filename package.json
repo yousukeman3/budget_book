@@ -7,16 +7,26 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^28.0.3",
-    "@rollup/plugin-node-resolve": "^16.0.1",
-    "@types/google-apps-script": "^1.0.97",
-    "rollup": "^4.36.0",
-    "rollup-plugin-typescript2": "^0.36.0",
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.2.4",
+    "prisma": "^6.5.0",
     "typescript": "^5.8.2"
   },
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "next": "15.2.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
   "scripts": {
-    "build": "rollup -c",
-    "push": "clasp push",
-    "deploy": "npm run build && npm run push"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "seed": "ts-node prisma/seed.ts"
   }
 }
