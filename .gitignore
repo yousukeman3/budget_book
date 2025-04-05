@@ -23,7 +23,7 @@ out/                    # next export 時の出力先（使わないなら不要
 # --- Prisma ---
 /prisma/.DS_Store
 /node_modules/
-/prisma/generated/
+/src/shared/zod/generated/
 
 # --- Docker ---
 docker-compose.override.yml
