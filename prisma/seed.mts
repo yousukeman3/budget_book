@@ -1,104 +1,69 @@
 import crypto from 'node:crypto'
-import { PrismaClient, EntryType, DebtType, CategoryType } from '@prisma/client'
 
-const prisma = new PrismaClient()
+import { PrismaClient, EntryType, DebtType, CategoryType } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 async function main() {
-  // 支払い方法（Method）
-  const cash = await prisma.method.upsert({
-    where: { id: 'cash' },
-    update: {},
-    create: {
-      id: 'cash',
-      name: '現金',
-      initialBalance: 10000,
-    },
-  })
-
-  const bank = await prisma.method.upsert({
-    where: { id: 'bank' },
-    update: {},
-    create: {
-      id: 'bank',
-      name: '銀行口座',
-      initialBalance: 50000,
-    },
-  })
-
-  // カテゴリ（Category）
-  const food = await prisma.category.upsert({
-    where: { id: 'food' },
-    update: {},
-    create: {
-      id: 'food',
-      name: '食費',
-      type: CategoryType.expense,
-    },
-  })
-
-  const salary = await prisma.category.upsert({
-    where: { id: 'salary' },
-    update: {},
-    create: {
-      id: 'salary',
-      name: '給与',
-      type: CategoryType.income,
-    },
-  })
-
-  // 貸借（Debt）
-  const debt = await prisma.debt.create({
-    data: {
-      type: DebtType.borrow,
-      date: new Date(),
-      amount: 10000,
-      counterpart: '山田太郎',
-      memo: '友達からの借金',
-      rootEntry: {
-        create: {
-          type: EntryType.borrow,
-          date: new Date(),
-          amount: 10000,
-          method: { connect: { id: 'cash' } },
-          purpose: '友達から借りた',
-        },
-      },
-    },
-    include: { rootEntry: true },
-  })
-
-  // 通常の収支 Entry
-  await prisma.entry.createMany({
+  // === EntryTypeMeta ===
+  await prisma.entryTypeMeta.createMany({
     data: [
-      {
-        id: crypto.randomUUID(),
-        type: EntryType.income,
-        date: new Date(),
-        amount: 3000,
-        methodId: 'bank',
-        categoryId: 'salary',
-        purpose: 'バイト代',
-      },
-      {
-        id: crypto.randomUUID(),
-        type: EntryType.expense,
-        date: new Date(),
-        amount: 1200,
-        methodId: 'cash',
-        categoryId: 'food',
-        purpose: 'ランチ',
-      },
+      { type: EntryType.income, label: '収入', color: '#4CAF50', icon: 'ArrowDownward', sortOrder: 1 },
+      { type: EntryType.expense, label: '支出', color: '#F44336', icon: 'ArrowUpward', sortOrder: 2 },
+      { type: EntryType.borrow, label: '借入', color: '#2196F3', icon: 'Download', sortOrder: 3 },
+      { type: EntryType.lend, label: '貸付', color: '#9C27B0', icon: 'Upload', sortOrder: 4 },
+      { type: EntryType.repayment, label: '返済', color: '#FF9800', icon: 'Undo', sortOrder: 5 },
+      { type: EntryType.repaymentReceive, label: '返済受取', color: '#3F51B5', icon: 'Redo', sortOrder: 6 },
+      { type: EntryType.transfer, label: '振替', color: '#607D8B', icon: 'SwapHoriz', sortOrder: 7 },
     ],
-  })
+    skipDuplicates: true,
+  });
 
-  console.log('✅ Seed 完了！')
+  // === DebtTypeMeta ===
+  await prisma.debtTypeMeta.createMany({
+    data: [
+      { type: DebtType.borrow, label: '借入', color: '#2196F3', icon: 'South', sortOrder: 1 },
+      { type: DebtType.lend, label: '貸付', color: '#9C27B0', icon: 'North', sortOrder: 2 },
+    ],
+    skipDuplicates: true,
+  });
+
+  // === CategoryTypeMeta ===
+  await prisma.categoryTypeMeta.createMany({
+    data: [
+      { type: CategoryType.income, label: '収入カテゴリ', color: '#4CAF50', icon: 'AttachMoney', sortOrder: 1 },
+      { type: CategoryType.expense, label: '支出カテゴリ', color: '#F44336', icon: 'MoneyOff', sortOrder: 2 },
+    ],
+    skipDuplicates: true,
+  });
+
+  // === Category 初期値 ===
+  await prisma.category.createMany({
+    data: [
+      { name: '不明収入', type: CategoryType.income },
+      { name: '不明支出', type: CategoryType.expense },
+      { name: '現金過不足', type: CategoryType.expense },
+    ],
+    skipDuplicates: true,
+  });
+
+  // === Method 初期値 ===
+  await prisma.method.create({
+    data: {
+      name: '現金',
+      initialBalance: 0,
+      archived: false,
+    },
+  });
+
+  console.log('✅ Seed 完了しました！');
 }
 
 main()
   .catch((e) => {
-    console.error(e)
-    process.exit(1)
+    console.error('❌ Seed 失敗:', e);
+    process.exit(1);
   })
-  .finally(() => {
-    prisma.$disconnect()
-  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

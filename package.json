@@ -32,6 +32,7 @@
     "start": "next start",
     "lint": "next lint",
     "db/seed": "node --loader ts-node/esm prisma/seed.mts",
-    "db/setup": "prisma migrate dev && seed"
+    "db/setup": "prisma migrate dev && seed",
+    "db/studio" : "prisma studio"
   }
 }
