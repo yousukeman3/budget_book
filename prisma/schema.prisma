@@ -25,6 +25,7 @@ enum EntryType {
   repayment
   repaymentReceive
   transfer
+  initial_balance
 }
 
 enum DebtType {
@@ -106,7 +107,7 @@ model Category {
   type     CategoryType
 
   entries  Entry[]            @relation("CategoryToEntry")
-  typeMeta CategoryTypeMeta   @relation("MethodTypeMetaToMethod", fields: [type], references: [type], onDelete: Cascade)
+  typeMeta CategoryTypeMeta   @relation("CategoryTypeMetaToCategory", fields: [type], references: [type], onDelete: Cascade)
 }
 
 model EntryTypeMeta {
@@ -139,5 +140,5 @@ model CategoryTypeMeta {
   icon        String?
   sortOrder   Int?
 
-  categories  Category[]    @relation("MethodTypeMetaToMethod")
+  categories  Category[]    @relation("CategoryTypeMetaToCategory")
 }

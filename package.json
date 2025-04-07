@@ -7,6 +7,9 @@
   "license": "ISC",
   "description": "",
   "type": "module",
+  "prisma": {
+    "seed": "node --loader ts-node/esm prisma/seed.mts"
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/node": "^20.17.28",

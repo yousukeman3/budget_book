@@ -15,6 +15,7 @@ async function main() {
       { type: EntryType.repayment, label: '返済', color: '#FF9800', icon: 'Undo', sortOrder: 5 },
       { type: EntryType.repaymentReceive, label: '返済受取', color: '#3F51B5', icon: 'Redo', sortOrder: 6 },
       { type: EntryType.transfer, label: '振替', color: '#607D8B', icon: 'SwapHoriz', sortOrder: 7 },
+      { type: EntryType.initial_balance, label: '初期残高', color: '#009688', icon: 'Balance', sortOrder: 8 },
     ],
     skipDuplicates: true,
   });
