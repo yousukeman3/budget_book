@@ -1,5 +1,0 @@
-const { transfer } = require('../transfer');
-
-test('hello world!', () => {
-	expect(transfer()).toBe('hello world!');
-});
