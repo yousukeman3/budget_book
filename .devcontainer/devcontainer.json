@@ -17,5 +17,9 @@
       ]
     }
   },
-  "postCreateCommand": "pnpm install"
+  "postCreateCommand": "pnpm install",
+  "remoteEnv": {
+    "SSH_AUTH_SOCK": "/ssh-agent"
+  },
+  "mounts": ["type=bind,source=${env:SSH_AUTH_SOCK},target=/ssh-agent"]
 }
