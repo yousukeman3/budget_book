@@ -1,10 +1,7 @@
-// filepath: /app/src/modules/entry/infrastructure/prisma/debtRepository.ts
 import { PrismaClient, Debt as PrismaDebt, Prisma } from '@prisma/client';
-import { Debt, DebtType } from '../../domain/entry';
+import { Debt } from '../../domain/debt';
 import { DebtRepository, DebtSearchOptions } from '../../domain/debtRepository';
-import { NotFoundError } from '../../../../shared/errors/AppError';
-import { ResourceType } from '../../../../shared/errors/ErrorCodes';
-import { Decimal } from '@prisma/client/runtime/library';
+import { DebtType } from '../../../../shared/types/debt.types';
 
 /**
  * PrismaによるDebtRepositoryの実装
@@ -48,7 +45,7 @@ export class PrismaDebtRepository implements DebtRepository {
 
     // タイプフィルタ
     if (options.type) {
-      where.type = options.type as DebtType;
+      where.type = options.type;
     }
 
     // 取引先フィルタ
@@ -107,13 +104,13 @@ export class PrismaDebtRepository implements DebtRepository {
   /**
    * 返済が完了していないDebtを検索
    */
-  async findOutstandingDebts(type?: string): Promise<Debt[]> {
+  async findOutstandingDebts(type?: DebtType): Promise<Debt[]> {
     const where: Prisma.DebtWhereInput = {
       repaidAt: null
     };
 
     if (type) {
-      where.type = type as DebtType;
+      where.type = type;
     }
 
     const debts = await this.prisma.debt.findMany({
@@ -164,8 +161,7 @@ export class PrismaDebtRepository implements DebtRepository {
       return this.toDomainModel(updatedDebt);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        // レコードが見つからない場合のエラー
-        throw new NotFoundError(ResourceType.DEBT, debt.id);
+        throw new Error(`Debt with ID ${debt.id} not found.`);
       }
       throw error;
     }
@@ -180,11 +176,11 @@ export class PrismaDebtRepository implements DebtRepository {
         where: { id },
         data: { repaidAt }
       });
-
+      
       return this.toDomainModel(updatedDebt);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new NotFoundError(ResourceType.DEBT, id);
+        throw new Error(`Debt with ID ${id} not found.`);
       }
       throw error;
     }
@@ -201,8 +197,7 @@ export class PrismaDebtRepository implements DebtRepository {
       return true;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        // レコードが見つからない場合はfalseを返す
-        return false;
+        throw new Error(`Debt with ID ${id} not found.`);
       }
       throw error;
     }

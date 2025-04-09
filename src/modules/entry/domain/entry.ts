@@ -2,21 +2,7 @@
 import { Decimal } from '@prisma/client/runtime/library';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
-
-/**
- * EntryTypeの定義
- * 収支タイプを表すenum
- */
-export enum EntryType {
-  INCOME = 'income',
-  EXPENSE = 'expense',
-  BORROW = 'borrow',
-  LEND = 'lend',
-  REPAYMENT = 'repayment',
-  REPAYMENT_RECEIVE = 'repaymentReceive',
-  TRANSFER = 'transfer',
-  INITIAL_BALANCE = 'initial_balance'
-}
+import { EntryType } from '../../../shared/types/entry.types';
 
 /**
  * Entryドメインエンティティ
@@ -37,49 +23,6 @@ export class Entry {
     public readonly debtId?: string,
     public readonly createdAt: Date = new Date()
   ) {
-    this.validateAmount();
-    this.validateTypeConsistency();
-  }
-
-  /**
-   * 金額のバリデーション
-   * 金額は必ず0より大きい必要がある
-   */
-  private validateAmount(): void {
-    if (this.amount.lte(new Decimal(0))) {
-      throw new BusinessRuleError(
-        '金額は0より大きい値を指定してください',
-        BusinessRuleErrorCode.INVALID_VALUE_RANGE,
-        { field: 'amount', value: this.amount.toString() }
-      );
-    }
-  }
-
-  /**
-   * タイプの整合性チェック
-   * EntryTypeに応じて必要なフィールドが存在するか確認
-   */
-  private validateTypeConsistency(): void {
-    // 借入・貸付の場合はdebtIdが必須
-    if ((this.type === EntryType.BORROW || this.type === EntryType.LEND) && !this.debtId) {
-      throw new BusinessRuleError(
-        `${this.type === EntryType.BORROW ? '借入' : '貸付'}の場合は対応するDebtが必要です`,
-        BusinessRuleErrorCode.INVALID_INPUT,
-        { field: 'debtId', type: this.type }
-      );
-    }
-
-    // 返済・返済受取の場合もdebtIdが必須
-    if ((this.type === EntryType.REPAYMENT || this.type === EntryType.REPAYMENT_RECEIVE) && !this.debtId) {
-      throw new BusinessRuleError(
-        `${this.type === EntryType.REPAYMENT ? '返済' : '返済受取'}の場合は対応するDebtが必要です`,
-        BusinessRuleErrorCode.INVALID_INPUT,
-        { field: 'debtId', type: this.type }
-      );
-    }
-
-    // その他のタイプ固有のバリデーション
-    // (transfer, initial_balanceなどの追加的なバリデーションはここに実装)
   }
 
   /**
@@ -151,81 +94,5 @@ export class Entry {
     
     // 想定外のタイプ
     return new Decimal(0);
-  }
-}
-
-/**
- * DebtTypeの定義
- * 貸借タイプを表すenum
- */
-export enum DebtType {
-  BORROW = 'borrow',
-  LEND = 'lend'
-}
-
-/**
- * Debtドメインエンティティ
- * 借入・貸付の記録と状態を表すドメインモデル
- */
-export class Debt {
-  constructor(
-    public readonly id: string,
-    public readonly type: DebtType,
-    public readonly rootEntryId: string,
-    public readonly date: Date,
-    public readonly amount: Decimal,
-    public readonly counterpart: string,
-    public readonly repaidAt?: Date,
-    public readonly memo?: string,
-  ) {
-    this.validateAmount();
-    this.validateDates();
-  }
-
-  /**
-   * 金額のバリデーション
-   */
-  private validateAmount(): void {
-    if (this.amount.lte(new Decimal(0))) {
-      throw new BusinessRuleError(
-        '金額は0より大きい値を指定してください',
-        BusinessRuleErrorCode.INVALID_VALUE_RANGE,
-        { field: 'amount', value: this.amount.toString() }
-      );
-    }
-  }
-
-  /**
-   * 日付の整合性チェック
-   */
-  private validateDates(): void {
-    if (this.repaidAt && this.date > this.repaidAt) {
-      throw new BusinessRuleError(
-        '返済日は発生日以降である必要があります',
-        BusinessRuleErrorCode.INVALID_DATE_RANGE,
-        { borrowDate: this.date, repaidAt: this.repaidAt }
-      );
-    }
-  }
-
-  /**
-   * このDebtが返済済みか判定
-   */
-  isRepaid(): boolean {
-    return !!this.repaidAt;
-  }
-
-  /**
-   * このDebtが借入か判定
-   */
-  isBorrow(): boolean {
-    return this.type === DebtType.BORROW;
-  }
-
-  /**
-   * このDebtが貸付か判定
-   */
-  isLend(): boolean {
-    return this.type === DebtType.LEND;
   }
 }

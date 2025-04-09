@@ -1,5 +1,5 @@
-// filepath: /app/src/modules/entry/domain/debtRepository.ts
-import { Debt } from "./entry";
+import { Debt } from "./debt";
+import { DebtType } from "../../../shared/types/debt.types";
 
 /**
  * Debt(貸借管理)リポジトリのインターフェース
@@ -32,7 +32,7 @@ export interface DebtRepository {
    * @param type 貸借タイプ（任意）
    * @returns 未返済のDebtの配列
    */
-  findOutstandingDebts(type?: string): Promise<Debt[]>;
+  findOutstandingDebts(type?: DebtType): Promise<Debt[]>;
 
   /**
    * 新しいDebtを作成する
@@ -68,7 +68,7 @@ export interface DebtRepository {
  * Debt検索のオプション
  */
 export interface DebtSearchOptions {
-  type?: string;
+  type?: DebtType;
   counterpart?: string;
   startDate?: Date;
   endDate?: Date;
