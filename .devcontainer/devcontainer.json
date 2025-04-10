@@ -7,6 +7,11 @@
   "containerEnv": {
     "PNPM_HOME": "/home/node/.pnpm-store"
   },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "node"
+    }
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -18,10 +23,11 @@
     }
   },
   "postCreateCommand": "pnpm install",
+  "postStartCommand": "sudo chown node:node /ssh-agent || true",
   "remoteEnv": {
     "SSH_AUTH_SOCK": "/ssh-agent"
   },
   "mounts": [
-  "type=bind,source=${env:SSH_AUTH_SOCK},target=/ssh-agent,consistency=cached,uid=1000,gid=1000"
+    "type=bind,source=${env:SSH_AUTH_SOCK},target=/ssh-agent,consistency=cached,uid=1000,gid=1000"
   ]
 }
