@@ -2,6 +2,8 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
 import { DebtType } from '../../../shared/types/debt.types';
+import { DebtSchema, DebtCreateSchema } from '../../../shared/zod/schema/DebtSchema';
+import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
 
 /**
  * Debtドメインエンティティ
@@ -18,8 +20,32 @@ export class Debt {
     public readonly repaidAt?: Date,
     public readonly memo?: string,
   ) {
+    // Zodスキーマによるバリデーション
+    validateWithSchema(DebtSchema, this);
     this.validateAmount();
     this.validateDates();
+  }
+
+  /**
+   * 入力データからDebtオブジェクトを作成するファクトリーメソッド
+   * バリデーションも実施
+   */
+  static create(data: Omit<Debt, 'id'> & { id?: string }): Debt {
+    const validatedData = validateWithSchema(DebtCreateSchema, {
+      ...data,
+      id: data.id || crypto.randomUUID()
+    });
+    
+    return new Debt(
+      validatedData.id,
+      validatedData.type,
+      validatedData.rootEntryId,
+      validatedData.date,
+      validatedData.amount,
+      validatedData.counterpart,
+      validatedData.repaidAt,
+      validatedData.memo
+    );
   }
 
   /**

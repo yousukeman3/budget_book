@@ -3,6 +3,8 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
 import { EntryType } from '../../../shared/types/entry.types';
+import { EntrySchema, EntryCreateSchema } from '../../../shared/zod/schema/EntrySchema';
+import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
 
 /**
  * Entryドメインエンティティ
@@ -23,6 +25,35 @@ export class Entry {
     public readonly debtId?: string,
     public readonly createdAt: Date = new Date()
   ) {
+    // インスタンス作成時にZodスキーマでバリデーション
+    validateWithSchema(EntrySchema, this);
+  }
+
+  /**
+   * 入力データからEntryオブジェクトを作成するファクトリーメソッド
+   * バリデーションも実施
+   */
+  static create(data: Omit<Entry, 'id' | 'createdAt'> & { id?: string, createdAt?: Date }): Entry {
+    const validatedData = validateWithSchema(EntryCreateSchema, {
+      ...data,
+      id: data.id || crypto.randomUUID(),
+      createdAt: data.createdAt || new Date()
+    });
+    
+    return new Entry(
+      validatedData.id,
+      validatedData.type,
+      validatedData.date,
+      validatedData.amount,
+      validatedData.methodId,
+      validatedData.categoryId,
+      validatedData.purpose,
+      validatedData.privatePurpose,
+      validatedData.note,
+      validatedData.evidenceNote,
+      validatedData.debtId,
+      validatedData.createdAt
+    );
   }
 
   /**
