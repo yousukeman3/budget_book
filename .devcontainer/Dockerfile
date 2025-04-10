@@ -1,4 +1,4 @@
-FROM node:18-alpine3.18@sha256:securehashvalue
+FROM node:23.10.0
 
 # pnpm グローバルインストール
 RUN npm install -g pnpm
