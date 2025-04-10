@@ -27,19 +27,30 @@ export class Transfer {
    * 入力データからTransferオブジェクトを作成するファクトリーメソッド
    * バリデーションも実施
    */
-  static create(data: Omit<Transfer, 'id'> & { id?: string }): Transfer {
-    const validatedData = validateWithSchema(TransferCreateSchema, {
+  static create(data: {
+    rootEntryId: string;
+    fromMethodId: string;
+    toMethodId: string;
+    date: Date;
+    note?: string;
+    id?: string;
+  }): Transfer {
+    // id がない場合は UUID を生成
+    const id = data.id || crypto.randomUUID();
+    
+    // データを検証
+    const validData = validateWithSchema(TransferCreateSchema, {
       ...data,
-      id: data.id || crypto.randomUUID()
+      id // 明示的にidを設定
     });
     
     return new Transfer(
-      validatedData.id,
-      validatedData.rootEntryId,
-      validatedData.fromMethodId,
-      validatedData.toMethodId,
-      validatedData.date,
-      validatedData.note
+      id,
+      validData.rootEntryId,
+      validData.fromMethodId,
+      validData.toMethodId,
+      validData.date,
+      validData.note
     );
   }
 

@@ -1,17 +1,22 @@
 import { z } from 'zod';
 
 /**
- * Transferドメインオブジェクト用のZodスキーマ
- * 振替の不変条件を型安全に表現する
+ * Transferの基本スキーマ
  */
-export const TransferSchema = z.object({
+const baseTransferSchema = z.object({
   id: z.string().uuid(),
   rootEntryId: z.string().uuid(),
   fromMethodId: z.string().uuid(),
   toMethodId: z.string().uuid(),
   date: z.date(),
   note: z.string().optional()
-}).refine((data) => {
+});
+
+/**
+ * Transferドメインオブジェクト用のZodスキーマ
+ * 振替の不変条件を型安全に表現する
+ */
+export const TransferSchema = baseTransferSchema.refine((data) => {
   // 振替元と振替先は異なる必要がある
   return data.fromMethodId !== data.toMethodId;
 }, {
@@ -20,9 +25,20 @@ export const TransferSchema = z.object({
 });
 
 /**
- * Transfer作成時の入力スキーマ（IDを除く）
+ * Transfer作成時の基本入力スキーマ（IDを除く）
  */
-export const TransferCreateSchema = TransferSchema.omit({ id: true });
+const baseTransferCreateSchema = baseTransferSchema.omit({ id: true });
+
+/**
+ * Transfer作成時の入力スキーマ（バリデーションルール適用済み）
+ */
+export const TransferCreateSchema = baseTransferCreateSchema.refine((data) => {
+  // 振替元と振替先は異なる必要がある
+  return data.fromMethodId !== data.toMethodId;
+}, {
+  message: '振替元と振替先の支払い方法は異なる必要があります',
+  path: ['toMethodId']
+});
 
 /**
  * Transferの型定義（TypeScript型）

@@ -1,6 +1,6 @@
 // filepath: /app/src/modules/method/domain/method.ts
 import { Decimal } from "@prisma/client/runtime/library";
-import { MethodSchema, MethodCreateSchema } from "../../../shared/zod/schema/MethodSchema";
+import { MethodSchema } from "../../../shared/zod/schema/MethodSchema";
 import { validateWithSchema } from "../../../shared/validation/validateWithSchema";
 
 /**
@@ -14,25 +14,33 @@ export class Method {
     public readonly initialBalance?: Decimal,
     public readonly archived: boolean = false
   ) {
-    // Zodスキーマによるバリデーション
-    validateWithSchema(MethodSchema, this);
+    // ここでは直接オブジェクトを渡してバリデーション
+    validateWithSchema(MethodSchema, {
+      id,
+      name,
+      initialBalance,
+      archived
+    });
   }
 
   /**
    * 入力データからMethodオブジェクトを作成するファクトリーメソッド
    * バリデーションも実施
    */
-  static create(data: Omit<Method, 'id'> & { id?: string }): Method {
-    const validatedData = validateWithSchema(MethodCreateSchema, {
-      ...data,
-      id: data.id || crypto.randomUUID()
-    });
+  static create(data: { 
+    name: string; 
+    initialBalance?: Decimal; 
+    archived?: boolean;
+    id?: string;
+  }): Method {
+    // id がない場合は UUID を生成
+    const id = data.id || crypto.randomUUID();
     
     return new Method(
-      validatedData.id,
-      validatedData.name,
-      validatedData.initialBalance,
-      validatedData.archived ?? false
+      id,
+      data.name,
+      data.initialBalance,
+      data.archived ?? false
     );
   }
 

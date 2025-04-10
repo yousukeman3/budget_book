@@ -30,21 +30,34 @@ export class Debt {
    * 入力データからDebtオブジェクトを作成するファクトリーメソッド
    * バリデーションも実施
    */
-  static create(data: Omit<Debt, 'id'> & { id?: string }): Debt {
-    const validatedData = validateWithSchema(DebtCreateSchema, {
+  static create(data: {
+    type: DebtType;
+    rootEntryId: string;
+    date: Date;
+    amount: Decimal;
+    counterpart: string;
+    repaidAt?: Date;
+    memo?: string;
+    id?: string;
+  }): Debt {
+    // id がない場合は UUID を生成
+    const id = data.id || crypto.randomUUID();
+    
+    // データを検証
+    const validData = validateWithSchema(DebtCreateSchema, {
       ...data,
-      id: data.id || crypto.randomUUID()
+      id // 明示的にidを設定
     });
     
     return new Debt(
-      validatedData.id,
-      validatedData.type,
-      validatedData.rootEntryId,
-      validatedData.date,
-      validatedData.amount,
-      validatedData.counterpart,
-      validatedData.repaidAt,
-      validatedData.memo
+      id,
+      validData.type,
+      validData.rootEntryId,
+      validData.date,
+      validData.amount,
+      validData.counterpart,
+      validData.repaidAt,
+      validData.memo
     );
   }
 

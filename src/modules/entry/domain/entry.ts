@@ -33,26 +33,44 @@ export class Entry {
    * 入力データからEntryオブジェクトを作成するファクトリーメソッド
    * バリデーションも実施
    */
-  static create(data: Omit<Entry, 'id' | 'createdAt'> & { id?: string, createdAt?: Date }): Entry {
-    const validatedData = validateWithSchema(EntryCreateSchema, {
+  static create(data: {
+    type: EntryType;
+    date: Date;
+    amount: Decimal;
+    methodId: string;
+    categoryId?: string;
+    purpose?: string;
+    privatePurpose?: string;
+    note?: string;
+    evidenceNote?: string;
+    debtId?: string;
+    id?: string;
+    createdAt?: Date;
+  }): Entry {
+    // id がない場合は UUID を生成
+    const id = data.id || crypto.randomUUID();
+    const createdAt = data.createdAt || new Date();
+    
+    // データを検証（これにより型安全性が確保される）
+    const validData = validateWithSchema(EntryCreateSchema, {
       ...data,
-      id: data.id || crypto.randomUUID(),
-      createdAt: data.createdAt || new Date()
+      id, // 明示的にidを設定
+      createdAt
     });
     
     return new Entry(
-      validatedData.id,
-      validatedData.type,
-      validatedData.date,
-      validatedData.amount,
-      validatedData.methodId,
-      validatedData.categoryId,
-      validatedData.purpose,
-      validatedData.privatePurpose,
-      validatedData.note,
-      validatedData.evidenceNote,
-      validatedData.debtId,
-      validatedData.createdAt
+      id,
+      validData.type,
+      validData.date,
+      validData.amount,
+      validData.methodId,
+      validData.categoryId,
+      validData.purpose,
+      validData.privatePurpose,
+      validData.note,
+      validData.evidenceNote,
+      validData.debtId,
+      validData.createdAt
     );
   }
 
