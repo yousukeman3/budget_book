@@ -1,4 +1,4 @@
-// filepath: jest.config.ts
+import type { Config } from 'jest';
 export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
@@ -11,6 +11,7 @@ export default {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   collectCoverage: true,
   collectCoverageFrom: [
     'src/modules/**/domain/**/*.ts',
@@ -21,4 +22,4 @@ export default {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'clover'],
-};
+} as Config;

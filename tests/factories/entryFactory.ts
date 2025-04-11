@@ -1,31 +1,19 @@
-import { z } from 'zod';
-import { EntryCreateInputWithRules } from '../../src/shared/zod/entryCustomSchema';
-
-// エントリタイプの定義
-type EntryType = 'income' | 'expense' | 'transfer';
-
-// エントリ入力データ型の定義
-export type EntryInput = {
-  type: EntryType;
-  date: Date;
-  amount: number;
-  methodId: string;
-  categoryId?: string;
-  purpose?: string;
-  note?: string;
-};
+import { Decimal } from '@prisma/client/runtime/library';
+import { Entry } from '../../src/modules/entry/domain/entry';
+import { EntryType } from '../../src/shared/types/entry.types';
+import { EntryCreateSchema } from '../../src/shared/zod/schema/EntrySchema';
 
 /**
  * テスト用のEntryデータを作成するファクトリ関数
- * @param override - デフォルト値をオーバーライドする部分的なEntryInputデータ
- * @returns テスト用のEntryInputデータ
+ * @param override - デフォルト値をオーバーライドする部分的なデータ
+ * @returns テスト用のエントリオブジェクト
  */
-export const createEntryData = (override: Partial<EntryInput> = {}): EntryInput => {
+export const createEntryData = (override: Partial<Parameters<typeof Entry.create>[0]> = {}): Entry => {
   // デフォルト値
-  const defaultEntry: EntryInput = {
-    type: 'expense',
+  const defaultEntry = {
+    type: EntryType.EXPENSE,
     date: new Date('2025-01-01T10:00:00Z'),
-    amount: 1000,
+    amount: new Decimal(1000),
     methodId: 'default-method-id',
     categoryId: 'default-category-id',
     purpose: 'テスト用エントリ',
@@ -33,20 +21,13 @@ export const createEntryData = (override: Partial<EntryInput> = {}): EntryInput 
   };
 
   // デフォルト値とオーバーライドを組み合わせ
-  return {
+  const entryData = {
     ...defaultEntry,
     ...override
   };
-};
 
-/**
- * Zodスキーマに基づくバリデーション済みのエントリデータを作成
- * @param override - デフォルト値をオーバーライドするデータ
- * @returns バリデーション済みのエントリデータ
- */
-export const createValidatedEntryData = (override: Partial<EntryInput> = {}) => {
-  const entryData = createEntryData(override);
-  return EntryCreateInputWithRules.parse(entryData);
+  // Entry.createファクトリメソッドを使用して正規のEntryオブジェクトを作成
+  return Entry.create(entryData);
 };
 
 /**
@@ -54,8 +35,8 @@ export const createValidatedEntryData = (override: Partial<EntryInput> = {}) => 
  * @param override - デフォルト値をオーバーライドするデータ
  * @returns 収入タイプのエントリデータ
  */
-export const createIncomeEntryData = (override: Partial<Omit<EntryInput, 'type'>> = {}) => {
-  return createEntryData({ type: 'income', ...override });
+export const createIncomeEntryData = (override: Partial<Omit<Parameters<typeof Entry.create>[0], 'type'>> = {}): Entry => {
+  return createEntryData({ type: EntryType.INCOME, ...override });
 };
 
 /**
@@ -63,6 +44,20 @@ export const createIncomeEntryData = (override: Partial<Omit<EntryInput, 'type'>
  * @param override - デフォルト値をオーバーライドするデータ
  * @returns 支出タイプのエントリデータ
  */
-export const createExpenseEntryData = (override: Partial<Omit<EntryInput, 'type'>> = {}) => {
-  return createEntryData({ type: 'expense', ...override });
+export const createExpenseEntryData = (override: Partial<Omit<Parameters<typeof Entry.create>[0], 'type'>> = {}): Entry => {
+  return createEntryData({ type: EntryType.EXPENSE, ...override });
+};
+
+/**
+ * 特定の金額のエントリを作成するショートカット関数
+ * @param amount - エントリ金額
+ * @param override - その他オーバーライドするデータ
+ * @returns 指定金額のエントリデータ
+ */
+export const createEntryWithAmount = (
+  amount: number | Decimal, 
+  override: Partial<Omit<Parameters<typeof Entry.create>[0], 'amount'>> = {}
+): Entry => {
+  const decimalAmount = amount instanceof Decimal ? amount : new Decimal(amount);
+  return createEntryData({ amount: decimalAmount, ...override });
 };

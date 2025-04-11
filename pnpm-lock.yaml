@@ -27,6 +27,9 @@ importers:
       '@eslint/eslintrc':
         specifier: ''
         version: 3.3.1
+      '@jest/globals':
+        specifier: '*'
+        version: 29.7.0
       '@testing-library/jest-dom':
         specifier: '*'
         version: 6.6.3

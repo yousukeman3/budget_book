@@ -6,7 +6,6 @@
   "author": "",
   "license": "ISC",
   "description": "",
-  "type": "module",
   "prisma": {
     "seed": "node --loader ts-node/esm prisma/seed.mts"
   },
@@ -18,6 +17,7 @@
     "@types/node": "*",
     "@types/react": "*",
     "@types/react-dom": "*",
+    "@jest/globals": "*",
     "eslint": "*",
     "eslint-config-next": "*",
     "jest": "*",

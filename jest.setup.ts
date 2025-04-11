@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 import 'jest-extended';
+import { jest } from '@jest/globals';
 
 // オリジナルの Date オブジェクトを保存
 const OriginalDate = global.Date;
