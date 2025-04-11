@@ -1,5 +1,6 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import { Entry } from "../../../src/modules/entry/domain/entry";
+import { randomUUID, UUID } from "crypto";
 import { EntryRepository, EntrySearchOptions, PagedEntries } from "../../../src/modules/entry/domain/entryRepository";
 
 /**
@@ -25,7 +26,7 @@ export class MockEntryRepository implements EntryRepository {
    * @returns 作成されたエントリ
    */
   async create(entry: Entry): Promise<Entry> {
-    const id = entry.id || `entry-${this.currentId++}`;
+    const id = entry.id || randomUUID();
     const date = entry.date || new Date();
     const newEntry: Entry = Entry.create({...entry, date, id});
     this.entries.set(id, newEntry);
