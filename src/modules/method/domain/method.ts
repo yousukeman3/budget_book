@@ -1,67 +1,85 @@
-// filepath: /app/src/modules/method/domain/method.ts
-import { Decimal } from "@prisma/client/runtime/library";
-import { BusinessRuleError } from "../../../shared/errors/AppError";
-import { BusinessRuleErrorCode } from "../../../shared/errors/ErrorCodes";
-import { MethodSchema, MethodCreateSchema } from "../../../shared/zod/schema/MethodSchema";
-import { validateWithSchema } from "../../../shared/validation/validateWithSchema";
+/**
+ * Method（支払い方法）のドメインモデル
+ * 
+ * 口座、現金、電子マネーなど、支払い手段を表現するドメインモデルです。
+ * 各収支エントリ(Entry)に関連付けられ、残高計算の基準点となります。
+ * 
+ * @module Method
+ */
+import { Decimal } from '@prisma/client/runtime/library';
+import { BusinessRuleError } from '../../../shared/errors/AppError';
+import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
+import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
+import { MethodSchema, MethodCreateSchema, ActiveMethodSchema } from '../../../shared/zod/schema/MethodSchema';
 
 /**
- * Methodドメインエンティティ
- * 支払い方法を表すドメインモデル
+ * Method（支払い方法）のドメインインターフェース
+ * 口座、現金、電子マネーなどの支払い手段
+ */
+export interface IMethod {
+  /** 一意な識別子 */
+  id: string;
+  /** 表示名 */
+  name: string;
+  /** 初期残高（任意） */
+  initialBalance?: number | null;
+  /** アーカイブ状態（非表示） */
+  archived?: boolean | null;
+}
+
+/**
+ * Method作成用の入力型
+ */
+export type MethodCreateInput = Omit<IMethod, 'id'>;
+
+/**
+ * Method更新用の入力型
+ */
+export type MethodUpdateInput = Partial<Omit<IMethod, 'id'>>;
+
+/**
+ * Methodドメインエンティティクラス
+ * 支払い手段の管理と状態を扱う
  */
 export class Method {
   constructor(
     public readonly id: string,
     public readonly name: string,
-    public readonly initialBalance?: Decimal,
+    public readonly initialBalance: Decimal | null = null,
     public readonly archived: boolean = false
   ) {
-    // ここでは直接オブジェクトを渡してバリデーション
-    validateWithSchema(MethodSchema, {
-      id,
-      name,
-      initialBalance,
-      archived
-    });
-    
-    // 名前の最小長チェック（Zodでも可能だが、ドメインルールとしても明示）
-    if (name.trim().length < 1) {
-      throw new BusinessRuleError(
-        '支払い方法名を入力してください',
-        BusinessRuleErrorCode.INVALID_INPUT,
-        { field: 'name' }
-      );
-    }
+    // インスタンス作成時にZodスキーマでバリデーション
+    // Zodスキーマで全てのバリデーションを実行
+    validateWithSchema(MethodSchema, this);
   }
 
   /**
    * 入力データからMethodオブジェクトを作成するファクトリーメソッド
-   * バリデーションも実施
    */
-  static create(data: { 
-    name: string; 
-    initialBalance?: Decimal; 
+  static create(data: {
+    name: string;
+    initialBalance?: Decimal | null;
     archived?: boolean;
     id?: string;
   }): Method {
+    // id がない場合は UUID を生成
+    const id = data.id || crypto.randomUUID();
+    
     try {
-      // id がない場合は UUID を生成
-      const id = data.id || crypto.randomUUID();
-      
-      // バリデーション
+      // データを検証
       const validData = validateWithSchema(MethodCreateSchema, {
         ...data,
-        id
+        id // 明示的にidを設定
       });
       
       return new Method(
         id,
         validData.name,
-        validData.initialBalance,
-        validData.archived ?? false
+        validData.initialBalance || null,
+        validData.archived || false
       );
     } catch (error) {
-      // エラーを明示的に BusinessRuleError にラップ
+      // エラーを BusinessRuleError にラップ
       if (error instanceof BusinessRuleError) {
         throw error;
       } else {
@@ -75,54 +93,74 @@ export class Method {
   }
 
   /**
-   * このMethodがアーカイブされているか確認
+   * この支払い方法がアーカイブされているかを確認
+   * @returns アーカイブされている場合true
    */
   isArchived(): boolean {
     return this.archived;
   }
 
   /**
-   * アーカイブされたMethodを使用しようとした場合にエラーを発生させる
+   * アーカイブされている場合にエラーを投げる
+   * 重要な操作の前にこのチェックを行う
    */
-  validateNotArchived(): void {
-    if (this.archived) {
-      throw new BusinessRuleError(
-        `支払い方法「${this.name}」はアーカイブされているため使用できません`,
-        BusinessRuleErrorCode.METHOD_ARCHIVED,
-        { methodId: this.id, methodName: this.name }
-      );
-    }
+  ensureActive(): void {
+    validateWithSchema(ActiveMethodSchema, this);
   }
 
   /**
-   * Methodをアーカイブ状態に更新した新しいインスタンスを返す
+   * アーカイブ状態を変更した新しいMethodオブジェクトを生成
+   * @param archived アーカイブ状態
+   * @returns アーカイブ状態を変更した新しいMethodオブジェクト
    */
-  archive(): Method {
-    if (this.archived) {
-      return this; // 既にアーカイブ済みなら何もしない
+  setArchived(archived: boolean): Method {
+    if (this.archived === archived) {
+      return this; // 状態が変わらなければ自身を返す
     }
     
     return new Method(
       this.id,
       this.name,
       this.initialBalance,
-      true
+      archived
     );
   }
 
   /**
-   * Methodをアーカイブ解除した新しいインスタンスを返す
+   * 名前を変更した新しいMethodオブジェクトを生成
+   * @param name 新しい名前
+   * @returns 名前を変更した新しいMethodオブジェクト
    */
-  unarchive(): Method {
-    if (!this.archived) {
-      return this; // 既にアーカイブ解除済みなら何もしない
+  rename(name: string): Method {
+    if (this.name === name) {
+      return this; // 名前が変わらなければ自身を返す
+    }
+    
+    // 名前のバリデーションはZodスキーマに委譲
+    return new Method(
+      this.id,
+      name,
+      this.initialBalance,
+      this.archived
+    );
+  }
+
+  /**
+   * 初期残高を変更した新しいMethodオブジェクトを生成
+   * @param initialBalance 新しい初期残高
+   * @returns 初期残高を変更した新しいMethodオブジェクト
+   */
+  setInitialBalance(initialBalance: Decimal | null): Method {
+    if ((this.initialBalance === null && initialBalance === null) ||
+        (this.initialBalance && initialBalance && this.initialBalance.equals(initialBalance))) {
+      return this; // 初期残高が変わらなければ自身を返す
     }
     
     return new Method(
       this.id,
       this.name,
-      this.initialBalance,
-      false
+      initialBalance,
+      this.archived
     );
   }
 }

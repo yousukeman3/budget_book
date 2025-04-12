@@ -1,10 +1,130 @@
-// filepath: /app/src/modules/entry/domain/entry.ts
+/**
+ * Entry（収支記録）のドメインモデル
+ * 
+ * 収入・支出・借入・貸付・返済など、すべての金銭の動きを記録する基本単位です。
+ * このドメインモデルは金銭の流れを表現し、残高計算・レポート集計の基礎となります。
+ * 
+ * @module Entry
+ */
 import { Decimal } from '@prisma/client/runtime/library';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
 import { EntryType } from '../../../shared/types/entry.types';
 import { EntrySchema, EntryCreateSchema } from '../../../shared/zod/schema/EntrySchema';
 import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
+
+/**
+ * Entryモデル（収支記録）
+ * 金銭の流れを記録する基本単位
+ */
+export interface IEntry {
+  id: string;
+  /** エントリータイプ（収入/支出/借入/貸付/返済/返済受取/振替/初期残高） */
+  type: EntryType;
+  /** 発生日 */
+  date: Date;
+  /** 金額（正の数） */
+  amount: number;
+  /** 支払い方法のID */
+  methodId: string;
+  /** カテゴリID（任意、収支系のみ使用） */
+  categoryId?: string | null;
+  /** 表向きの使途 */
+  purpose?: string | null;
+  /** 非公開の実際の使途（UI非表示・集計対象外） */
+  privatePurpose?: string | null;
+  /** 補足情報・文脈情報 */
+  note?: string | null;
+  /** 証憑情報（アプリ内保存リソースへのURIが格納される場合あり） */
+  evidenceNote?: string | null;
+  /** 関連する借入/貸付ID */
+  debtId?: string | null;
+  /** 作成日時 */
+  createdAt: Date;
+}
+
+/**
+ * Entry作成用の入力型
+ */
+export type EntryCreateInput = Omit<IEntry, 'id' | 'createdAt'>;
+
+/**
+ * Entry更新用の入力型
+ */
+export type EntryUpdateInput = Partial<Omit<IEntry, 'id' | 'createdAt' | 'type'>>;
+
+/**
+ * Entryのドメインバリデーション実行
+ * ビジネスルールに反する場合はBusinessRuleErrorを投げる
+ * 
+ * @param entry 検証対象のエントリ
+ * @throws {BusinessRuleError} ビジネスルール違反時
+ */
+export function validateEntryBusinessRules(entry: IEntry | EntryCreateInput): void {
+  // 金額の検証（正の数であること）
+  if (entry.amount <= 0) {
+    throw new BusinessRuleError(
+      '金額は0より大きい値を入力してください',
+      BusinessRuleErrorCode.INVALID_VALUE_RANGE,
+      { field: 'amount', value: entry.amount }
+    );
+  }
+
+  // 借入/貸付/返済系の場合はdebtIdが必要
+  if ((entry.type === 'borrow' || entry.type === 'lend' || 
+       entry.type === 'repayment' || entry.type === 'repayment_receive') && 
+      !entry.debtId) {
+    throw new BusinessRuleError(
+      `${entry.type}タイプのエントリには借入/貸付IDが必要です`,
+      BusinessRuleErrorCode.INVALID_INPUT,
+      { field: 'debtId', type: entry.type }
+    );
+  }
+
+  // 日付のバリデーション（省略）
+  // ...
+}
+
+/**
+ * 収支タイプによってカテゴリが必須かどうかを判定
+ * 
+ * @param type エントリータイプ
+ * @returns カテゴリーが必須の場合true
+ */
+export function isCategoryRequired(type: EntryType): boolean {
+  return type === 'income' || type === 'expense';
+}
+
+/**
+ * 収支が借入/貸付系かどうかを判定
+ * 
+ * @param type エントリータイプ
+ * @returns 借入/貸付系の場合true
+ */
+export function isDebtRelatedEntry(type: EntryType): boolean {
+  return type === 'borrow' || type === 'lend' || 
+         type === 'repayment' || type === 'repayment_receive';
+}
+
+/**
+ * 収支が振替かどうかを判定
+ * 
+ * @param type エントリータイプ
+ * @returns 振替の場合true
+ */
+export function isTransferEntry(type: EntryType): boolean {
+  return type === 'transfer';
+}
+
+/**
+ * 収支が初期残高かどうかを判定
+ * 
+ * @param type エントリータイプ
+ * @returns 初期残高の場合true
+ */
+export function isInitialBalanceEntry(type: EntryType): boolean {
+  return type === 'initial_balance';
+}
 
 /**
  * Entryドメインエンティティ

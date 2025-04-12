@@ -3,8 +3,16 @@ import { BusinessRuleErrorCode, SystemErrorCode, ResourceType, ValidationErrorCo
 
 /**
  * アプリケーション全体で使用する基底エラークラス
+ * すべてのカスタムエラークラスはこのクラスを継承します
  */
 export abstract class AppError extends Error {
+  /**
+   * AppErrorコンストラクタ
+   * @param message エラーメッセージ
+   * @param code エラーコード
+   * @param httpStatus HTTPステータスコード
+   * @param details エラーに関する追加情報
+   */
   constructor(
     message: string,
     public readonly code: string,
@@ -23,6 +31,12 @@ export abstract class AppError extends Error {
  * フォームデータやAPIリクエストの入力値検証に関するエラー
  */
 export class ValidationError extends AppError {
+  /**
+   * ValidationErrorコンストラクタ
+   * @param message エラーメッセージ
+   * @param validationErrors フィールド名をキーとするエラーメッセージの配列
+   * @param code バリデーションエラーコード
+   */
   constructor(
     message: string,
     public readonly validationErrors: Record<string, string[]>,
@@ -34,6 +48,8 @@ export class ValidationError extends AppError {
 
   /**
    * Zodのバリデーションエラーから変換するファクトリメソッド
+   * @param zodError Zodが生成したエラーオブジェクト
+   * @returns ValidationErrorインスタンス
    */
   static fromZodError(zodError: any): ValidationError {
     // Zodエラーからフィールド名と対応するエラーメッセージの辞書を作成
@@ -61,6 +77,12 @@ export class ValidationError extends AppError {
  * データ自体は有効だが、業務ルール上許可されない操作に関するエラー
  */
 export class BusinessRuleError extends AppError {
+  /**
+   * BusinessRuleErrorコンストラクタ
+   * @param message エラーメッセージ
+   * @param code ビジネスルールエラーコード
+   * @param details エラーに関する追加情報
+   */
   constructor(
     message: string,
     code: BusinessRuleErrorCode,
@@ -70,26 +92,50 @@ export class BusinessRuleError extends AppError {
   }
   
   // ビジネスエラーコードに基づくヘルパーメソッド
+  /**
+   * アーカイブされた支払い方法に関するエラーかどうかを判定
+   * @returns エラーコードがMETHOD_ARCHIVEDの場合true
+   */
   isMethodArchived(): boolean {
     return this.code === BusinessRuleErrorCode.METHOD_ARCHIVED;
   }
   
+  /**
+   * 重複エントリに関するエラーかどうかを判定
+   * @returns エラーコードがDUPLICATE_ENTRYの場合true
+   */
   isDuplicateEntry(): boolean {
     return this.code === BusinessRuleErrorCode.DUPLICATE_ENTRY;
   }
   
+  /**
+   * すでに完済された借金/貸付に関するエラーかどうかを判定
+   * @returns エラーコードがDEBT_ALREADY_REPAIDの場合true
+   */
   isDebtAlreadyRepaid(): boolean {
     return this.code === BusinessRuleErrorCode.DEBT_ALREADY_REPAID;
   }
   
+  /**
+   * 返済金額が残高を超えているエラーかどうかを判定
+   * @returns エラーコードがEXCESS_REPAYMENT_AMOUNTの場合true
+   */
   isExcessRepaymentAmount(): boolean {
     return this.code === BusinessRuleErrorCode.EXCESS_REPAYMENT_AMOUNT;
   }
   
+  /**
+   * 同一口座間での振替エラーかどうかを判定
+   * @returns エラーコードがIDENTICAL_ACCOUNTSの場合true
+   */
   isIdenticalAccounts(): boolean {
     return this.code === BusinessRuleErrorCode.IDENTICAL_ACCOUNTS;
   }
   
+  /**
+   * 残高不足エラーかどうかを判定
+   * @returns エラーコードがINSUFFICIENT_FUNDSの場合true
+   */
   isInsufficientFunds(): boolean {
     return this.code === BusinessRuleErrorCode.INSUFFICIENT_FUNDS;
   }
@@ -99,6 +145,11 @@ export class BusinessRuleError extends AppError {
  * 存在しないリソースへのアクセスを表すエラークラス
  */
 export class NotFoundError extends AppError {
+  /**
+   * NotFoundErrorコンストラクタ
+   * @param resourceType リソースタイプ
+   * @param resourceId リソースの識別子（オプション）
+   */
   constructor(
     resourceType: ResourceType,
     resourceId?: string | number
@@ -113,6 +164,12 @@ export class NotFoundError extends AppError {
  * システム内部や外部連携の問題によるエラークラス
  */
 export class SystemError extends AppError {
+  /**
+   * SystemErrorコンストラクタ
+   * @param message エラーメッセージ
+   * @param code システムエラーコード
+   * @param originalError 原因となったエラーオブジェクト（オプション）
+   */
   constructor(
     message: string,
     code: SystemErrorCode = SystemErrorCode.UNEXPECTED_ERROR,
@@ -127,6 +184,8 @@ export class SystemError extends AppError {
 
 /**
  * リソース種別の日本語表示名を取得
+ * @param resourceType リソースタイプ
+ * @returns リソースの日本語表示名
  */
 function getResourceDisplayName(resourceType: ResourceType): string {
   switch (resourceType) {

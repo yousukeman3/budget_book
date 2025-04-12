@@ -1,5 +1,5 @@
 // filepath: /app/src/modules/entry/infrastructure/prisma/entryRepository.ts
-import { PrismaClient, Entry as PrismaEntry, Prisma } from '@prisma/client';
+import { PrismaClient, Entry as PrismaEntry, EntryType as PrismaEntryType, Prisma } from '@prisma/client';
 import { Entry } from '../../domain/entry';
 import { EntryType } from '../../../../shared/types/entry.types';
 import { EntryRepository, EntrySearchOptions } from '../../domain/entryRepository';
@@ -107,7 +107,7 @@ export class PrismaEntryRepository implements EntryRepository {
       // タイプフィルタ
       if (options.types && options.types.length > 0) {
         where.type = {
-          in: options.types as EntryType[]
+          in: options.types as PrismaEntryType[]
         };
       }
 
@@ -214,7 +214,7 @@ export class PrismaEntryRepository implements EntryRepository {
           methodId: entry.methodId,
           purpose: entry.purpose,
           // 同じtypeの場合のみ重複とみなす
-          type: entry.type
+          type: entry.type as PrismaEntryType
         }
       });
 
@@ -233,7 +233,7 @@ export class PrismaEntryRepository implements EntryRepository {
       const createdEntry = await this.prisma.entry.create({
         data: {
           id: entry.id, // IDを明示的に指定
-          type: entry.type,
+          type: entry.type as PrismaEntryType,
           date: entry.date,
           amount: entry.amount,
           methodId: entry.methodId,
@@ -273,7 +273,7 @@ export class PrismaEntryRepository implements EntryRepository {
       const updatedEntry = await this.prisma.entry.update({
         where: { id: entry.id },
         data: {
-          type: entry.type,
+          type: entry.type as PrismaEntryType,
           date: entry.date,
           amount: entry.amount,
           methodId: entry.methodId,
