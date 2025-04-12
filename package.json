@@ -11,6 +11,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "*",
+    "@typescript-eslint/eslint-plugin": "~2.6.1",
+    "@typescript-eslint/parser": "~2.6.1",
     "@jest/globals": "*",
     "@testing-library/jest-dom": "*",
     "@testing-library/react": "*",
@@ -20,6 +22,8 @@
     "@types/react-dom": "*",
     "eslint": "*",
     "eslint-config-next": "*",
+    "eslint-plugin-react-hooks": "*",
+    "eslint-plugin-tsdoc": "*",
     "jest": "*",
     "jest-environment-jsdom": "*",
     "jest-extended": "*",
@@ -31,10 +35,9 @@
     "typescript": "*"
   },
   "dependencies": {
+    "@next/eslint-plugin-next": "*",
     "@prisma/client": "*",
-    "@types/decimal.js": "*",
     "decimal.js": "*",
-    "eslint-plugin-tsdoc": "*",
     "next": "*",
     "react": "*",
     "react-dom": "*",
