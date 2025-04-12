@@ -27,6 +27,61 @@ export class Entry {
   ) {
     // インスタンス作成時にZodスキーマでバリデーション
     validateWithSchema(EntrySchema, this);
+    
+    // 追加のドメインルールバリデーション
+    this.validateAmount();
+    this.validateTypeConsistency();
+  }
+
+  /**
+   * 金額が正の値であるかを検証
+   */
+  private validateAmount(): void {
+    if (this.amount.lessThanOrEqualTo(0)) {
+      throw new BusinessRuleError(
+        '金額は0より大きい値である必要があります',
+        BusinessRuleErrorCode.INVALID_VALUE_RANGE,
+        { field: 'amount', value: this.amount.toString() }
+      );
+    }
+  }
+
+  /**
+   * エントリタイプとその他の項目の整合性を検証
+   */
+  private validateTypeConsistency(): void {
+    // 借入/貸付/返済系の場合はdebtIdが必須
+    if ((this.type === EntryType.BORROW || 
+         this.type === EntryType.LEND || 
+         this.type === EntryType.REPAYMENT || 
+         this.type === EntryType.REPAYMENT_RECEIVE) && 
+        !this.debtId) {
+      throw new BusinessRuleError(
+        `${this.getEntryTypeLabel()}には借金/貸付IDが必要です`,
+        BusinessRuleErrorCode.INVALID_VALUE_COMBINATION,
+        { field: 'debtId', entryType: this.type }
+      );
+    }
+
+    // 収入/支出の場合はカテゴリが推奨（必須ではない）
+    // ここでは警告レベルだが、必要に応じてエラーに変更可能
+  }
+
+  /**
+   * エントリタイプの表示名を取得
+   */
+  private getEntryTypeLabel(): string {
+    switch (this.type) {
+      case EntryType.INCOME: return '収入';
+      case EntryType.EXPENSE: return '支出';
+      case EntryType.BORROW: return '借入';
+      case EntryType.LEND: return '貸付';
+      case EntryType.REPAYMENT: return '返済';
+      case EntryType.REPAYMENT_RECEIVE: return '返済受取';
+      case EntryType.TRANSFER: return '振替';
+      case EntryType.INITIAL_BALANCE: return '初期残高';
+      default: return 'エントリ';
+    }
   }
 
   /**
@@ -51,27 +106,40 @@ export class Entry {
     const id = data.id || crypto.randomUUID();
     const createdAt = data.createdAt || new Date();
     
-    // データを検証（これにより型安全性が確保される）
-    const validData = validateWithSchema(EntryCreateSchema, {
-      ...data,
-      id, // 明示的にidを設定
-      createdAt
-    });
-    
-    return new Entry(
-      id,
-      validData.type,
-      validData.date,
-      validData.amount,
-      validData.methodId,
-      validData.categoryId,
-      validData.purpose,
-      validData.privatePurpose,
-      validData.note,
-      validData.evidenceNote,
-      validData.debtId,
-      validData.createdAt
-    );
+    try {
+      // データを検証（これにより型安全性が確保される）
+      const validData = validateWithSchema(EntryCreateSchema, {
+        ...data,
+        id, // 明示的にidを設定
+        createdAt
+      });
+      
+      return new Entry(
+        id,
+        validData.type,
+        validData.date,
+        validData.amount,
+        validData.methodId,
+        validData.categoryId,
+        validData.purpose,
+        validData.privatePurpose,
+        validData.note,
+        validData.evidenceNote,
+        validData.debtId,
+        validData.createdAt
+      );
+    } catch (error) {
+      // エラーを明示的に BusinessRuleError にラップして詳細を追加
+      if (error instanceof BusinessRuleError) {
+        throw error;  // すでにBusinessRuleErrorならそのままスロー
+      } else {
+        throw new BusinessRuleError(
+          'エントリの作成に失敗しました',
+          BusinessRuleErrorCode.INVALID_INPUT,
+          { originalError: error }
+        );
+      }
+    }
   }
 
   /**

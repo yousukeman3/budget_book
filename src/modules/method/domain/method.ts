@@ -1,6 +1,8 @@
 // filepath: /app/src/modules/method/domain/method.ts
 import { Decimal } from "@prisma/client/runtime/library";
-import { MethodSchema } from "../../../shared/zod/schema/MethodSchema";
+import { BusinessRuleError } from "../../../shared/errors/AppError";
+import { BusinessRuleErrorCode } from "../../../shared/errors/ErrorCodes";
+import { MethodSchema, MethodCreateSchema } from "../../../shared/zod/schema/MethodSchema";
 import { validateWithSchema } from "../../../shared/validation/validateWithSchema";
 
 /**
@@ -21,6 +23,15 @@ export class Method {
       initialBalance,
       archived
     });
+    
+    // 名前の最小長チェック（Zodでも可能だが、ドメインルールとしても明示）
+    if (name.trim().length < 1) {
+      throw new BusinessRuleError(
+        '支払い方法名を入力してください',
+        BusinessRuleErrorCode.INVALID_INPUT,
+        { field: 'name' }
+      );
+    }
   }
 
   /**
@@ -33,15 +44,34 @@ export class Method {
     archived?: boolean;
     id?: string;
   }): Method {
-    // id がない場合は UUID を生成
-    const id = data.id || crypto.randomUUID();
-    
-    return new Method(
-      id,
-      data.name,
-      data.initialBalance,
-      data.archived ?? false
-    );
+    try {
+      // id がない場合は UUID を生成
+      const id = data.id || crypto.randomUUID();
+      
+      // バリデーション
+      const validData = validateWithSchema(MethodCreateSchema, {
+        ...data,
+        id
+      });
+      
+      return new Method(
+        id,
+        validData.name,
+        validData.initialBalance,
+        validData.archived ?? false
+      );
+    } catch (error) {
+      // エラーを明示的に BusinessRuleError にラップ
+      if (error instanceof BusinessRuleError) {
+        throw error;
+      } else {
+        throw new BusinessRuleError(
+          '支払い方法の作成に失敗しました',
+          BusinessRuleErrorCode.INVALID_INPUT,
+          { originalError: error }
+        );
+      }
+    }
   }
 
   /**
@@ -52,9 +82,26 @@ export class Method {
   }
 
   /**
+   * アーカイブされたMethodを使用しようとした場合にエラーを発生させる
+   */
+  validateNotArchived(): void {
+    if (this.archived) {
+      throw new BusinessRuleError(
+        `支払い方法「${this.name}」はアーカイブされているため使用できません`,
+        BusinessRuleErrorCode.METHOD_ARCHIVED,
+        { methodId: this.id, methodName: this.name }
+      );
+    }
+  }
+
+  /**
    * Methodをアーカイブ状態に更新した新しいインスタンスを返す
    */
   archive(): Method {
+    if (this.archived) {
+      return this; // 既にアーカイブ済みなら何もしない
+    }
+    
     return new Method(
       this.id,
       this.name,
@@ -67,6 +114,10 @@ export class Method {
    * Methodをアーカイブ解除した新しいインスタンスを返す
    */
   unarchive(): Method {
+    if (!this.archived) {
+      return this; // 既にアーカイブ解除済みなら何もしない
+    }
+    
     return new Method(
       this.id,
       this.name,
