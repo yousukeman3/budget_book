@@ -11,13 +11,13 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "*",
+    "@jest/globals": "*",
     "@testing-library/jest-dom": "*",
     "@testing-library/react": "*",
     "@types/jest": "*",
     "@types/node": "*",
     "@types/react": "*",
     "@types/react-dom": "*",
-    "@jest/globals": "*",
     "eslint": "*",
     "eslint-config-next": "*",
     "jest": "*",
@@ -31,8 +31,10 @@
     "typescript": "*"
   },
   "dependencies": {
-    "decimal": "*",
     "@prisma/client": "*",
+    "@types/decimal.js": "*",
+    "decimal.js": "*",
+    "eslint-plugin-tsdoc": "*",
     "next": "*",
     "react": "*",
     "react-dom": "*",

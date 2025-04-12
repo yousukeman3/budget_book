@@ -7,7 +7,7 @@
  * @module EntrySchema
  */
 import { z } from 'zod';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from '../../../shared/utils/decimal';
 import { EntryType } from '../../types/entry.types';
 import { BusinessRuleErrorCode } from '../../errors/ErrorCodes';
 

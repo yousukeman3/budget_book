@@ -9,6 +9,7 @@
  */
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
+import { Decimal } from '../../../shared/utils/decimal';
 import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
 import { TransferSchema, TransferCreateSchema, SufficientFundsTransferSchema } from '../../../shared/zod/schema/TransferSchema';
 

@@ -7,7 +7,7 @@
  * @module DebtSchema
  */
 import { z } from 'zod';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from '../../utils/decimal';
 import { DebtType } from '../../types/debt.types';
 import { BusinessRuleErrorCode } from '../../errors/ErrorCodes';
 

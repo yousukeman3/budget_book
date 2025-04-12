@@ -2,6 +2,7 @@ import { PrismaClient, Debt as PrismaDebt, Prisma } from '@prisma/client';
 import { Debt } from '../../domain/debt';
 import { DebtRepository, DebtSearchOptions } from '../../domain/debtRepository';
 import { DebtType } from '../../../../shared/types/debt.types';
+import { fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/utils/decimal';
 
 /**
  * PrismaによるDebtRepositoryの実装
@@ -18,7 +19,7 @@ export class PrismaDebtRepository implements DebtRepository {
       prismaDebt.type as DebtType,
       prismaDebt.rootEntryId,
       prismaDebt.date,
-      prismaDebt.amount,
+      fromPrismaDecimal(prismaDebt.amount), // Prisma DecimalからDecimal.jsに変換
       prismaDebt.counterpart,
       prismaDebt.repaidAt ?? undefined,
       prismaDebt.memo ?? undefined
@@ -130,7 +131,7 @@ export class PrismaDebtRepository implements DebtRepository {
         type: debt.type,
         rootEntryId: debt.rootEntryId,
         date: debt.date,
-        amount: debt.amount,
+        amount: toPrismaDecimal(debt.amount), // Decimal.jsからPrisma Decimalに変換
         counterpart: debt.counterpart,
         repaidAt: debt.repaidAt,
         memo: debt.memo
@@ -151,7 +152,7 @@ export class PrismaDebtRepository implements DebtRepository {
           type: debt.type,
           rootEntryId: debt.rootEntryId,
           date: debt.date,
-          amount: debt.amount,
+          amount: toPrismaDecimal(debt.amount), // Decimal.jsからPrisma Decimalに変換
           counterpart: debt.counterpart,
           repaidAt: debt.repaidAt,
           memo: debt.memo

@@ -7,7 +7,7 @@
  * @module MethodSchema
  */
 import { z } from 'zod';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from '../../utils/decimal';
 import { BusinessRuleErrorCode } from '../../errors/ErrorCodes';
 
 /**

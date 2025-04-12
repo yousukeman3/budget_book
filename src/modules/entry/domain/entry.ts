@@ -6,7 +6,7 @@
  * 
  * @module Entry
  */
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal, toDecimal } from '../../../shared/utils/decimal';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
 import { EntryType } from '../../../shared/types/entry.types';
@@ -211,7 +211,7 @@ export class Entry {
   static create(data: {
     type: EntryType;
     date: Date;
-    amount: Decimal;
+    amount: Decimal | number | string;
     methodId: string;
     categoryId?: string;
     purpose?: string;
@@ -227,9 +227,13 @@ export class Entry {
     const createdAt = data.createdAt || new Date();
     
     try {
+      // 金額をDecimal型に変換
+      const amount = toDecimal(data.amount);
+      
       // データを検証（これにより型安全性が確保される）
       const validData = validateWithSchema(EntryCreateSchema, {
         ...data,
+        amount,
         id, // 明示的にidを設定
         createdAt
       });

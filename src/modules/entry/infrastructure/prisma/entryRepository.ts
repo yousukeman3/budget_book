@@ -5,7 +5,7 @@ import { EntryType } from '../../../../shared/types/entry.types';
 import { EntryRepository, EntrySearchOptions } from '../../domain/entryRepository';
 import { NotFoundError, SystemError, BusinessRuleError } from '../../../../shared/errors/AppError';
 import { ResourceType, SystemErrorCode, BusinessRuleErrorCode } from '../../../../shared/errors/ErrorCodes';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal, fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/utils/decimal';
 
 /**
  * PrismaによるEntryRepositoryの実装
@@ -21,7 +21,7 @@ export class PrismaEntryRepository implements EntryRepository {
       prismaEntry.id,
       prismaEntry.type as EntryType,
       prismaEntry.date,
-      prismaEntry.amount,
+      fromPrismaDecimal(prismaEntry.amount), // Prisma Decimalからdecimal.jsのDecimalに変換
       prismaEntry.methodId,
       prismaEntry.categoryId ?? undefined,
       prismaEntry.purpose ?? undefined,
@@ -210,7 +210,7 @@ export class PrismaEntryRepository implements EntryRepository {
       const possibleDuplicate = await this.prisma.entry.findFirst({
         where: {
           date: entry.date,
-          amount: entry.amount,
+          amount: toPrismaDecimal(entry.amount), // decimal.jsのDecimalからPrisma Decimalに変換
           methodId: entry.methodId,
           purpose: entry.purpose,
           // 同じtypeの場合のみ重複とみなす
@@ -235,7 +235,7 @@ export class PrismaEntryRepository implements EntryRepository {
           id: entry.id, // IDを明示的に指定
           type: entry.type as PrismaEntryType,
           date: entry.date,
-          amount: entry.amount,
+          amount: toPrismaDecimal(entry.amount), // decimal.jsのDecimalからPrisma Decimalに変換
           methodId: entry.methodId,
           categoryId: entry.categoryId,
           purpose: entry.purpose,
@@ -275,7 +275,7 @@ export class PrismaEntryRepository implements EntryRepository {
         data: {
           type: entry.type as PrismaEntryType,
           date: entry.date,
-          amount: entry.amount,
+          amount: toPrismaDecimal(entry.amount), // decimal.jsのDecimalからPrisma Decimalに変換
           methodId: entry.methodId,
           categoryId: entry.categoryId,
           purpose: entry.purpose,

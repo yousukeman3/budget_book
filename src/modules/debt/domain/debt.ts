@@ -6,7 +6,7 @@
  * 
  * @module Debt
  */
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal, toDecimal } from '../../../shared/utils/decimal';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
 import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
@@ -73,7 +73,7 @@ export class Debt {
     type: DebtType;
     rootEntryId: string;
     date: Date;
-    amount: Decimal;
+    amount: Decimal | number | string;
     counterpart: string;
     repaidAt?: Date | null;
     memo?: string | null;
@@ -83,9 +83,13 @@ export class Debt {
     const id = data.id || crypto.randomUUID();
     
     try {
+      // 金額をDecimal型に変換
+      const amount = toDecimal(data.amount);
+      
       // データを検証（これにより型安全性が確保される）
       const validData = validateWithSchema(DebtCreateSchema, {
         ...data,
+        amount,
         id // 明示的にidを設定
       });
       

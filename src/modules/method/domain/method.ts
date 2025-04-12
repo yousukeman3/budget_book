@@ -6,7 +6,7 @@
  * 
  * @module Method
  */
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal, toDecimal } from '../../../shared/utils/decimal';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
 import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
@@ -58,7 +58,7 @@ export class Method {
    */
   static create(data: {
     name: string;
-    initialBalance?: Decimal | null;
+    initialBalance?: Decimal | number | string | null;
     archived?: boolean;
     id?: string;
   }): Method {
@@ -66,9 +66,13 @@ export class Method {
     const id = data.id || crypto.randomUUID();
     
     try {
+      // 金額をDecimal型に変換
+      const initialBalance = data.initialBalance != null ? toDecimal(data.initialBalance) : null;
+      
       // データを検証
       const validData = validateWithSchema(MethodCreateSchema, {
         ...data,
+        initialBalance,
         id // 明示的にidを設定
       });
       
@@ -150,16 +154,19 @@ export class Method {
    * @param initialBalance 新しい初期残高
    * @returns 初期残高を変更した新しいMethodオブジェクト
    */
-  setInitialBalance(initialBalance: Decimal | null): Method {
-    if ((this.initialBalance === null && initialBalance === null) ||
-        (this.initialBalance && initialBalance && this.initialBalance.equals(initialBalance))) {
+  setInitialBalance(initialBalance: Decimal | number | string | null): Method {
+    // nullでない場合はDecimal型に変換
+    const decimalBalance = initialBalance != null ? toDecimal(initialBalance) : null;
+    
+    if ((this.initialBalance === null && decimalBalance === null) ||
+        (this.initialBalance && decimalBalance && this.initialBalance.equals(decimalBalance))) {
       return this; // 初期残高が変わらなければ自身を返す
     }
     
     return new Method(
       this.id,
       this.name,
-      initialBalance,
+      decimalBalance,
       this.archived
     );
   }
