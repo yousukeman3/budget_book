@@ -1,6 +1,6 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import { Entry } from "../../../src/modules/entry/domain/entry";
-import { randomUUID, UUID } from "crypto";
+import { randomUUID } from "crypto";
 import { EntryRepository, EntrySearchOptions, PagedEntries } from "../../../src/modules/entry/domain/entryRepository";
 
 /**
@@ -26,9 +26,9 @@ export class MockEntryRepository implements EntryRepository {
    * @returns 作成されたエントリ
    */
   async create(entry: Entry): Promise<Entry> {
-    const id = entry.id || randomUUID();
+        const id = entry.id || randomUUID();
     const date = entry.date || new Date();
-    const newEntry: Entry = Entry.create({...entry, date, id});
+        const newEntry = Entry.create({...entry, date, id});
     this.entries.set(id, newEntry);
     return newEntry;
   }
@@ -112,6 +112,37 @@ export class MockEntryRepository implements EntryRepository {
   }
 
   /**
+   * ページング機能付きでEntryを検索する
+   * @param options 検索条件とページネーション設定
+   * @returns ページ分割されたエントリ結果
+   */
+  async findByOptionsWithPaging(options: EntrySearchOptions): Promise<PagedEntries> {
+    // 全件取得（フィルター適用）
+    let allResults = await this.findByOptions({
+      ...options,
+      limit: undefined, // 全件取得するためにlimitを無効化
+      offset: undefined
+    });
+    
+    // 総件数を記録
+    const totalCount = allResults.length;
+    
+    // ページネーション適用（指定がある場合）
+    const limit = options.limit || totalCount;
+    const offset = options.offset || 0;
+    const entries = allResults.slice(offset, offset + limit);
+    
+    // 次のページがあるかどうか
+    const hasMore = offset + limit < totalCount;
+    
+    return {
+      entries,
+      totalCount,
+      hasMore
+    };
+  }
+
+  /**
    * 特定の支払い方法に関連するEntryをすべて取得
    * @param methodId 支払い方法のID
    * @returns 指定した支払い方法に関連するEntryの配列
@@ -152,17 +183,10 @@ export class MockEntryRepository implements EntryRepository {
              entry.date <= endDate;
     });
     
-    // 収入はプラス、支出はマイナスで計算
-    const totalAmount = entries.reduce<Decimal>((sum, entry) => {
-      if (entry.type === 'income') {
-        return  Decimal(sum).add(entry.amount);
-      } else if (entry.type === 'expense') {
-        return Decimal(sum).sub(entry.amount);
-      }
-      return sum;
-    }, Decimal(0));
-    
-    return new Decimal(totalAmount);
+    // Entry.getBalanceImpact()を利用して、各エントリによる残高への影響を計算
+    return entries.reduce((sum, entry) => {
+      return sum.add(entry.getBalanceImpact());
+    }, new Decimal(0));
   }
 
   /**
