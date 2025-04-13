@@ -1,5 +1,6 @@
 // filepath: /app/src/shared/errors/AppError.ts
 import { BusinessRuleErrorCode, SystemErrorCode, ResourceType, ValidationErrorCode } from './ErrorCodes';
+import type { ZodError } from 'zod';
 
 /**
  * アプリケーション全体で使用する基底エラークラス
@@ -8,10 +9,10 @@ import { BusinessRuleErrorCode, SystemErrorCode, ResourceType, ValidationErrorCo
 export abstract class AppError extends Error {
   /**
    * AppErrorコンストラクタ
-   * @param message エラーメッセージ
-   * @param code エラーコード
-   * @param httpStatus HTTPステータスコード
-   * @param details エラーに関する追加情報
+   * @param message - エラーメッセージ
+   * @param code - エラーコード
+   * @param httpStatus - HTTPステータスコード
+   * @param details - エラーに関する追加情報
    */
   constructor(
     message: string,
@@ -33,9 +34,9 @@ export abstract class AppError extends Error {
 export class ValidationError extends AppError {
   /**
    * ValidationErrorコンストラクタ
-   * @param message エラーメッセージ
-   * @param validationErrors フィールド名をキーとするエラーメッセージの配列
-   * @param code バリデーションエラーコード
+   * @param message - エラーメッセージ
+   * @param validationErrors - フィールド名をキーとするエラーメッセージの配列
+   * @param code - バリデーションエラーコード
    */
   constructor(
     message: string,
@@ -48,10 +49,10 @@ export class ValidationError extends AppError {
 
   /**
    * Zodのバリデーションエラーから変換するファクトリメソッド
-   * @param zodError Zodが生成したエラーオブジェクト
+   * @param zodError - Zodが生成したエラーオブジェクト
    * @returns ValidationErrorインスタンス
    */
-  static fromZodError(zodError: any): ValidationError {
+  static fromZodError(zodError : ZodError): ValidationError {
     // Zodエラーからフィールド名と対応するエラーメッセージの辞書を作成
     const validationErrors: Record<string, string[]> = {};
     
@@ -79,9 +80,9 @@ export class ValidationError extends AppError {
 export class BusinessRuleError extends AppError {
   /**
    * BusinessRuleErrorコンストラクタ
-   * @param message エラーメッセージ
-   * @param code ビジネスルールエラーコード
-   * @param details エラーに関する追加情報
+   * @param message - エラーメッセージ
+   * @param code - ビジネスルールエラーコード
+   * @param details - エラーに関する追加情報
    */
   constructor(
     message: string,
@@ -147,8 +148,8 @@ export class BusinessRuleError extends AppError {
 export class NotFoundError extends AppError {
   /**
    * NotFoundErrorコンストラクタ
-   * @param resourceType リソースタイプ
-   * @param resourceId リソースの識別子（オプション）
+   * @param resourceType - リソースタイプ
+   * @param resourceId - リソースの識別子（オプション）
    */
   constructor(
     resourceType: ResourceType,
@@ -166,9 +167,9 @@ export class NotFoundError extends AppError {
 export class SystemError extends AppError {
   /**
    * SystemErrorコンストラクタ
-   * @param message エラーメッセージ
-   * @param code システムエラーコード
-   * @param originalError 原因となったエラーオブジェクト（オプション）
+   * @param message - エラーメッセージ
+   * @param code - システムエラーコード
+   * @param originalError - 原因となったエラーオブジェクト（オプション）
    */
   constructor(
     message: string,
@@ -184,7 +185,7 @@ export class SystemError extends AppError {
 
 /**
  * リソース種別の日本語表示名を取得
- * @param resourceType リソースタイプ
+ * @param resourceType - リソースタイプ
  * @returns リソースの日本語表示名
  */
 function getResourceDisplayName(resourceType: ResourceType): string {

@@ -1,7 +1,7 @@
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";
-import { tsdoc } from "@typescript-eslint/tsdoc";
+import plugin from "eslint-plugin-tsdoc";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,7 +18,7 @@ const eslintConfig = [
   ),
   {
     plugins: {
-      tsdoc: tsdoc,
+      tsdoc: plugin,
     },
     rules: {
       // 未使用の変数を警告

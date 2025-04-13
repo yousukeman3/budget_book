@@ -3,8 +3,6 @@
  * 
  * 収入・支出・借入・貸付・返済など、すべての金銭の動きを記録する基本単位です。
  * このドメインモデルは金銭の流れを表現し、残高計算・レポート集計の基礎となります。
- * 
- * @module Entry
  */
 import { Decimal, toDecimal } from '../../../shared/utils/decimal';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
@@ -14,51 +12,102 @@ import { EntrySchema, EntryCreateSchema } from '../../../shared/zod/schema/Entry
 import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
 
 /**
- * Entryモデル（収支記録）
- * 金銭の流れを記録する基本単位
+ * Entryモデル（収支記録）インターフェース
+ * 金銭の流れを記録する基本単位の型定義
  */
 export interface IEntry {
+  /** エントリーの一意識別子（UUIDv4） */
   id: string;
-  /** エントリータイプ（収入/支出/借入/貸付/返済/返済受取/振替/初期残高） */
+  
+  /** 
+   * エントリータイプ（収入/支出/借入/貸付/返済/返済受取/振替/初期残高） 
+   * {@link EntryType} の値が設定されます
+   */
   type: EntryType;
-  /** 発生日 */
+  
+  /** 
+   * 発生日 
+   * 
+   * 金銭の移動が発生した日付（ローカルタイム基準）
+   */
   date: Date;
-  /** 金額（正の数） */
+  
+  /** 
+   * 金額（正の数）
+   * 
+   * 0より大きい数値である必要があります 
+   */
   amount: number;
-  /** 支払い方法のID */
+  
+  /** 支払い方法のID（Method.idへの参照） */
   methodId: string;
-  /** カテゴリID（任意、収支系のみ使用） */
+  
+  /** 
+   * カテゴリID（任意、収支系のみ使用） 
+   * 
+   * 収入/支出タイプのエントリーで使用されます
+   */
   categoryId?: string | null;
-  /** 表向きの使途 */
+  
+  /** 
+   * 表向きの使途 
+   * 
+   * 集計やUI表示対象となる公開用の目的
+   */
   purpose?: string | null;
-  /** 非公開の実際の使途（UI非表示・集計対象外） */
+  
+  /** 
+   * 非公開の実際の使途 
+   * 
+   * UI非表示・集計対象外の非公開情報
+   */
   privatePurpose?: string | null;
-  /** 補足情報・文脈情報 */
+  
+  /** 
+   * 補足情報・文脈情報 
+   * 
+   * タグ、状況、文脈などの自由記述
+   */
   note?: string | null;
-  /** 証憑情報（アプリ内保存リソースへのURIが格納される場合あり） */
+  
+  /** 
+   * 証憑情報 
+   * 
+   * アプリ内保存リソースへのURIが格納される場合があります
+   */
   evidenceNote?: string | null;
-  /** 関連する借入/貸付ID */
+  
+  /** 
+   * 関連する借入/貸付ID 
+   * 
+   * 借入／貸付／返済時に必須となるDebtモデルへの参照
+   */
   debtId?: string | null;
+  
   /** 作成日時 */
   createdAt: Date;
 }
 
 /**
  * Entry作成用の入力型
+ * 
+ * IEntryから'id'と'createdAt'フィールドを除いた型
  */
 export type EntryCreateInput = Omit<IEntry, 'id' | 'createdAt'>;
 
 /**
  * Entry更新用の入力型
+ * 
+ * IEntryから'id'、'createdAt'、'type'フィールドを除いた部分的な型
  */
 export type EntryUpdateInput = Partial<Omit<IEntry, 'id' | 'createdAt' | 'type'>>;
 
 /**
  * Entryのドメインバリデーション実行
- * ビジネスルールに反する場合はBusinessRuleErrorを投げる
+ * ビジネスルールに反する場合はBusinessRuleErrorを投げます
  * 
- * @param entry 検証対象のエントリ
- * @throws {BusinessRuleError} ビジネスルール違反時
+ * @param entry - 検証対象のエントリ
+ * @throws ビジネスルール違反時にBusinessRuleErrorをスローします
  */
 export function validateEntryBusinessRules(entry: IEntry | EntryCreateInput): void {
   // 金額の検証（正の数であること）
@@ -88,7 +137,7 @@ export function validateEntryBusinessRules(entry: IEntry | EntryCreateInput): vo
 /**
  * 収支タイプによってカテゴリが必須かどうかを判定
  * 
- * @param type エントリータイプ
+ * @param type - エントリータイプ
  * @returns カテゴリーが必須の場合true
  */
 export function isCategoryRequired(type: EntryType): boolean {
@@ -98,7 +147,7 @@ export function isCategoryRequired(type: EntryType): boolean {
 /**
  * 収支が借入/貸付系かどうかを判定
  * 
- * @param type エントリータイプ
+ * @param type - エントリータイプ
  * @returns 借入/貸付系の場合true
  */
 export function isDebtRelatedEntry(type: EntryType): boolean {
@@ -109,7 +158,7 @@ export function isDebtRelatedEntry(type: EntryType): boolean {
 /**
  * 収支が振替かどうかを判定
  * 
- * @param type エントリータイプ
+ * @param type - エントリータイプ
  * @returns 振替の場合true
  */
 export function isTransferEntry(type: EntryType): boolean {
@@ -119,7 +168,7 @@ export function isTransferEntry(type: EntryType): boolean {
 /**
  * 収支が初期残高かどうかを判定
  * 
- * @param type エントリータイプ
+ * @param type - エントリータイプ
  * @returns 初期残高の場合true
  */
 export function isInitialBalanceEntry(type: EntryType): boolean {
@@ -127,10 +176,27 @@ export function isInitialBalanceEntry(type: EntryType): boolean {
 }
 
 /**
- * Entryドメインエンティティ
+ * Entryドメインエンティティクラス
  * 収支記録の中核となるドメインモデル
  */
 export class Entry {
+  /**
+   * Entryオブジェクトのコンストラクタ
+   * 
+   * @param id - エントリの一意識別子
+   * @param type - エントリタイプ
+   * @param date - 発生日
+   * @param amount - 金額（Decimal）
+   * @param methodId - 支払い方法ID
+   * @param categoryId - カテゴリID（任意）
+   * @param purpose - 表向きの使途（任意）
+   * @param privatePurpose - 非公開の使途（任意）
+   * @param note - 補足情報（任意）
+   * @param evidenceNote - 証憑情報（任意）
+   * @param debtId - 関連する借入/貸付ID（任意）
+   * @param createdAt - 作成日時
+   * @throws バリデーション失敗時にBusinessRuleErrorをスローします
+   */
   constructor(
     public readonly id: string,
     public readonly type: EntryType,
@@ -145,68 +211,18 @@ export class Entry {
     public readonly debtId?: string,
     public readonly createdAt: Date = new Date()
   ) {
-    // インスタンス作成時にZodスキーマでバリデーション
+    // インスタンス作成時にZodスキーマでバリデーションを一元的に行う
+    // Zodスキーマには金額の正値チェックやエントリタイプと関連フィールドの整合性チェックが含まれている
     validateWithSchema(EntrySchema, this);
-    
-    // 追加のドメインルールバリデーション
-    this.validateAmount();
-    this.validateTypeConsistency();
-  }
-
-  /**
-   * 金額が正の値であるかを検証
-   */
-  private validateAmount(): void {
-    if (this.amount.lessThanOrEqualTo(0)) {
-      throw new BusinessRuleError(
-        '金額は0より大きい値である必要があります',
-        BusinessRuleErrorCode.INVALID_VALUE_RANGE,
-        { field: 'amount', value: this.amount.toString() }
-      );
-    }
-  }
-
-  /**
-   * エントリタイプとその他の項目の整合性を検証
-   */
-  private validateTypeConsistency(): void {
-    // 借入/貸付/返済系の場合はdebtIdが必須
-    if ((this.type === EntryType.BORROW || 
-         this.type === EntryType.LEND || 
-         this.type === EntryType.REPAYMENT || 
-         this.type === EntryType.REPAYMENT_RECEIVE) && 
-        !this.debtId) {
-      throw new BusinessRuleError(
-        `${this.getEntryTypeLabel()}には借金/貸付IDが必要です`,
-        BusinessRuleErrorCode.INVALID_VALUE_COMBINATION,
-        { field: 'debtId', entryType: this.type }
-      );
-    }
-
-    // 収入/支出の場合はカテゴリが推奨（必須ではない）
-    // ここでは警告レベルだが、必要に応じてエラーに変更可能
-  }
-
-  /**
-   * エントリタイプの表示名を取得
-   */
-  private getEntryTypeLabel(): string {
-    switch (this.type) {
-      case EntryType.INCOME: return '収入';
-      case EntryType.EXPENSE: return '支出';
-      case EntryType.BORROW: return '借入';
-      case EntryType.LEND: return '貸付';
-      case EntryType.REPAYMENT: return '返済';
-      case EntryType.REPAYMENT_RECEIVE: return '返済受取';
-      case EntryType.TRANSFER: return '振替';
-      case EntryType.INITIAL_BALANCE: return '初期残高';
-      default: return 'エントリ';
-    }
   }
 
   /**
    * 入力データからEntryオブジェクトを作成するファクトリーメソッド
-   * バリデーションも実施
+   * バリデーションも実施します
+   * 
+   * @param data - エントリ作成のための入力データ
+   * @returns 新しいEntryオブジェクト
+   * @throws バリデーション失敗時にBusinessRuleErrorをスローします
    */
   static create(data: {
     type: EntryType;
@@ -268,6 +284,7 @@ export class Entry {
 
   /**
    * このエントリが収入系か判定
+   * @returns 収入系の場合true（収入、借入、返済受取）
    */
   isIncome(): boolean {
     return this.type === EntryType.INCOME || 
@@ -277,6 +294,7 @@ export class Entry {
 
   /**
    * このエントリが支出系か判定
+   * @returns 支出系の場合true（支出、貸付、返済）
    */
   isExpense(): boolean {
     return this.type === EntryType.EXPENSE || 
@@ -286,6 +304,7 @@ export class Entry {
 
   /**
    * このエントリが転送系か判定
+   * @returns 振替の場合true
    */
   isTransfer(): boolean {
     return this.type === EntryType.TRANSFER;
@@ -293,6 +312,7 @@ export class Entry {
 
   /**
    * このエントリが初期残高か判定
+   * @returns 初期残高の場合true
    */
   isInitialBalance(): boolean {
     return this.type === EntryType.INITIAL_BALANCE;
@@ -300,17 +320,21 @@ export class Entry {
 
   /**
    * このエントリが貸借系か判定
+   * @returns 貸借関連の場合true（借入、貸付、返済、返済受取）
    */
   isDebtRelated(): boolean {
     return this.type === EntryType.BORROW || 
            this.type === EntryType.LEND ||
-           this.type === EntryType.REPAYMENT ||
+           this.type === EntryType.REPAYMENT || 
            this.type === EntryType.REPAYMENT_RECEIVE;
   }
 
   /**
    * Method残高への影響額を計算
-   * 残高にどう影響するかを返す
+   * @returns 残高への影響額（Decimal）。収入系ならプラス、支出系ならマイナス
+   * 
+   * 振替の場合は、このメソッドだけでは完全な影響を判断できません。
+   * entryId=rootEntryIdのTransferを参照してfromMethod/toMethodどちらかを確認する必要があります。
    */
   getBalanceImpact(): Decimal {
     // 収入系は残高増加（プラス）

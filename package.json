@@ -11,8 +11,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "*",
-    "@typescript-eslint/eslint-plugin": "~2.6.1",
-    "@typescript-eslint/parser": "~2.6.1",
+    "@typescript-eslint/eslint-plugin": "*",
+    "@typescript-eslint/parser": "*",
     "@jest/globals": "*",
     "@testing-library/jest-dom": "*",
     "@testing-library/react": "*",

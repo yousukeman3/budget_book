@@ -1,12 +1,9 @@
 // filepath: /app/src/shared/hooks/useErrorHandler.ts
 import { useState } from 'react';
-import { 
-  BusinessRuleErrorCode, 
-  SystemErrorCode, 
-  ValidationErrorCode 
+import type { 
+  BusinessRuleErrorCode,
 } from '../errors/ErrorCodes';
 import { 
-  AppError, 
   BusinessRuleError, 
   SystemError, 
   ValidationError 
@@ -16,7 +13,7 @@ import {
  * エラーハンドリングフックの戻り値の型定義
  */
 interface ErrorHandlerHookResult {
-  /** バリデーションエラーのマップ（フィールド名 -> エラーメッセージ配列） */
+  /** バリデーションエラーのマップ（フィールド名 -\> エラーメッセージ配列） */
   validationErrors: Record<string, string[]>;
   
   /** ビジネスルールエラーの情報 */
@@ -31,13 +28,13 @@ interface ErrorHandlerHookResult {
   
   /**
    * エラーオブジェクトを適切に処理する関数
-   * @param error 処理対象のエラーオブジェクト
+   * @param error - 処理対象のエラーオブジェクト
    */
   handleError: (error: unknown) => void;
   
   /**
    * 特定のビジネスルールエラーかどうかを判定する関数
-   * @param code 判定するビジネスルールエラーコード
+   * @param code - 判定するビジネスルールエラーコード
    * @returns エラーコードが一致する場合true
    */
   isBusinessError: (code: BusinessRuleErrorCode) => boolean;
@@ -47,14 +44,14 @@ interface ErrorHandlerHookResult {
   
   /**
    * 特定のフィールドのバリデーションエラーメッセージを取得する関数
-   * @param fieldName フィールド名
+   * @param fieldName - フィールド名
    * @returns エラーメッセージまたはundefined
    */
   getFieldError: (fieldName: string) => string | undefined;
   
   /**
    * 特定のフィールドにエラーがあるかを判定する関数
-   * @param fieldName フィールド名
+   * @param fieldName - フィールド名
    * @returns エラーがある場合true
    */
   hasFieldError: (fieldName: string) => boolean;
@@ -106,9 +103,9 @@ export function useErrorHandler(): ErrorHandlerHookResult {
    * エラーオブジェクトを適切に処理してステートを更新する
    * 受け取ったエラーの種類に応じて適切なステートを更新します
    * 
-   * @param error 処理対象のエラーオブジェクト
+   * @param error - 処理対象のエラーオブジェクト
    */
-  const handleError = (error: unknown) => {
+  const handleError = (error: unknown) : void =>{
     // すべてのエラー状態をリセット
     setValidationErrors({});
     setBusinessError(null);
@@ -153,7 +150,7 @@ export function useErrorHandler(): ErrorHandlerHookResult {
   /**
    * 特定のビジネスルールエラーかどうかを判定する
    * 
-   * @param code 判定するビジネスルールエラーコード
+   * @param code - 判定するビジネスルールエラーコード
    * @returns エラーコードが一致する場合true
    */
   const isBusinessError = (code: BusinessRuleErrorCode): boolean => {
@@ -163,7 +160,7 @@ export function useErrorHandler(): ErrorHandlerHookResult {
   /**
    * すべてのエラー状態をリセットする
    */
-  const resetErrors = () => {
+  const resetErrors = () : void => {
     setValidationErrors({});
     setBusinessError(null);
     setSystemError(null);
@@ -172,7 +169,7 @@ export function useErrorHandler(): ErrorHandlerHookResult {
   /**
    * 特定のフィールドのバリデーションエラーメッセージを取得する
    * 
-   * @param fieldName フィールド名
+   * @param fieldName - フィールド名
    * @returns エラーメッセージまたはundefined
    */
   const getFieldError = (fieldName: string): string | undefined => {
@@ -183,7 +180,7 @@ export function useErrorHandler(): ErrorHandlerHookResult {
   /**
    * 特定のフィールドにエラーがあるかを判定する
    * 
-   * @param fieldName フィールド名
+   * @param fieldName - フィールド名
    * @returns エラーがある場合true
    */
   const hasFieldError = (fieldName: string): boolean => {

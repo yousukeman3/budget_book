@@ -3,10 +3,8 @@
  * 
  * このモジュールは、アプリケーション全体で一貫したバリデーション処理を提供します。
  * Zodスキーマを使用してデータの検証と型安全な変換を行います。
- * 
- * @module validateWithSchema
  */
-import { ZodSchema } from 'zod';
+import type { ZodSchema, ZodError } from 'zod';
 import { ValidationError } from '../errors/AppError';
 import { ValidationErrorCode } from '../errors/ErrorCodes';
 
@@ -17,11 +15,11 @@ import { ValidationErrorCode } from '../errors/ErrorCodes';
  * バリデーション済みの型安全なデータを返します。失敗した場合は
  * ValidationErrorとして詳細なエラー情報を提供します。
  * 
- * @template T - スキーマの出力型
- * @param {ZodSchema<T>} schema - 検証に使用するZodスキーマ
- * @param {unknown} data - 検証対象のデータ
- * @returns {T} 検証に成功した型安全なデータ
- * @throws {ValidationError} バリデーションエラー（詳細なフィールドエラーを含む）
+ * @typeParam T - スキーマの出力型
+ * @param schema - 検証に使用するZodスキーマ
+ * @param data - 検証対象のデータ
+ * @returns 検証に成功した型安全なデータ
+ * @throws {@link ValidationError} バリデーションエラー（詳細なフィールドエラーを含む）
  * 
  * @example
  * ```typescript
@@ -46,13 +44,13 @@ export function validateWithSchema<T>(schema: ZodSchema<T>, data: unknown): T {
   try {
     // スキーマを使用してデータを検証・変換
     return schema.parse(data);
-  } catch (error : any) {
+  } catch (error) {
     // Zodのエラー形式からアプリケーション固有のValidationErrorに変換
-    if (error.name === 'ZodError') {
+    if ((error as ZodError).name === 'ZodError') {
       // エラーメッセージの詳細マップを作成
       const validationErrors: Record<string, string[]> = {};
       
-      for (const issue of error.errors) {
+      for (const issue of (error as ZodError).errors) {
         const path = issue.path.join('.');
         if (!validationErrors[path]) {
           validationErrors[path] = [];
@@ -76,9 +74,9 @@ export function validateWithSchema<T>(schema: ZodSchema<T>, data: unknown): T {
  * Zodスキーマでバリデーションし、問題があればカスタムメッセージとしてフォーマット
  * 主にサーバーアクション内で使用することを想定
  * 
- * @param schema バリデーション用のZodスキーマ
- * @param data バリデーション対象のデータ
- * @param customErrorMessage カスタムエラーメッセージ（省略可）
+ * @param schema - バリデーション用のZodスキーマ
+ * @param data - バリデーション対象のデータ
+ * @param customErrorMessage - カスタムエラーメッセージ（省略可）
  * @returns バリデーションに成功した場合、型付けされたデータを返す
  */
 export function validateOrThrow<T>(
@@ -86,14 +84,23 @@ export function validateOrThrow<T>(
   data: unknown,
   customErrorMessage = '入力内容に問題があります'
 ): T {
-  return validateWithSchema(schema, data);
+  try {
+    return validateWithSchema(schema, data);
+  } catch (error) {
+    throw new ValidationError(
+      customErrorMessage, 
+      (error as ValidationError).validationErrors || {}, 
+      ValidationErrorCode.INVALID_INPUT
+    );
+  }
+  
 }
 
 /**
  * Zodバリデーションエラーを人間が読みやすい形式に変換
  * 主にUIコンポーネントでのエラー表示に使用
  * 
- * @param error ValidationError オブジェクト
+ * @param error - ValidationError オブジェクト
  * @returns フィールド名をキーとし、エラーメッセージ配列を値とするオブジェクト
  */
 export function formatValidationErrors(error: ValidationError): Record<string, string[]> {

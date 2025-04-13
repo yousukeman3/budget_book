@@ -1,17 +1,29 @@
-import { PrismaClient, Debt as PrismaDebt, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { PrismaClient, Debt as PrismaDebt } from '@prisma/client';
 import { Debt } from '../../domain/debt';
-import { DebtRepository, DebtSearchOptions } from '../../domain/debtRepository';
-import { DebtType } from '../../../../shared/types/debt.types';
+import type { DebtRepository, DebtSearchOptions } from '../../domain/debtRepository';
+import type { DebtType } from '../../../../shared/types/debt.types';
 import { fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/utils/decimal';
 
 /**
  * PrismaによるDebtRepositoryの実装
+ * 
+ * 貸借管理（Debt）のリポジトリインターフェースをPrismaを用いて実装したクラス。
+ * データベースとドメインモデルの変換ロジックを担当する。
  */
 export class PrismaDebtRepository implements DebtRepository {
+  /**
+   * コンストラクタ
+   * 
+   * @param prisma - Prismaクライアントインスタンス
+   */
   constructor(private prisma: PrismaClient) {}
 
   /**
    * PrismaのDebtモデルをドメインモデルに変換する
+   * 
+   * @param prismaDebt - Prismaから取得したDebtモデル
+   * @returns ドメイン層のDebtモデル
    */
   private toDomainModel(prismaDebt: PrismaDebt): Debt {
     return new Debt(
@@ -28,6 +40,9 @@ export class PrismaDebtRepository implements DebtRepository {
 
   /**
    * IDによるDebt検索
+   * 
+   * @param id - 検索対象のDebtのID
+   * @returns 見つかったDebtオブジェクト、見つからない場合はundefined
    */
   async findById(id: string): Promise<Debt | undefined> {
     const debt = await this.prisma.debt.findUnique({
@@ -39,6 +54,9 @@ export class PrismaDebtRepository implements DebtRepository {
 
   /**
    * 検索オプションによるDebt検索
+   * 
+   * @param options - 検索条件オプション
+   * @returns 条件に合致するDebtオブジェクトの配列
    */
   async findByOptions(options: DebtSearchOptions): Promise<Debt[]> {
     // 検索条件の構築
@@ -93,6 +111,9 @@ export class PrismaDebtRepository implements DebtRepository {
 
   /**
    * 特定のルートエントリに関連するDebtを取得
+   * 
+   * @param rootEntryId - 対象のEntryのID
+   * @returns 関連するDebtオブジェクト、見つからない場合はundefined
    */
   async findByRootEntryId(rootEntryId: string): Promise<Debt | undefined> {
     const debt = await this.prisma.debt.findUnique({
@@ -104,6 +125,9 @@ export class PrismaDebtRepository implements DebtRepository {
 
   /**
    * 返済が完了していないDebtを検索
+   * 
+   * @param type - オプションで指定する貸借タイプ
+   * @returns 返済未完了のDebtオブジェクトの配列
    */
   async findOutstandingDebts(type?: DebtType): Promise<Debt[]> {
     const where: Prisma.DebtWhereInput = {
@@ -124,6 +148,9 @@ export class PrismaDebtRepository implements DebtRepository {
 
   /**
    * 新しいDebtを作成
+   * 
+   * @param debt - 作成するDebtオブジェクト
+   * @returns 作成されたDebtオブジェクト（IDが割り当てられている）
    */
   async create(debt: Debt): Promise<Debt> {
     const createdDebt = await this.prisma.debt.create({
@@ -143,6 +170,10 @@ export class PrismaDebtRepository implements DebtRepository {
 
   /**
    * 既存のDebtを更新
+   * 
+   * @param debt - 更新するDebtオブジェクト
+   * @returns 更新されたDebtオブジェクト
+   * @throws {@link Error} - 指定したIDのDebtが存在しない場合
    */
   async update(debt: Debt): Promise<Debt> {
     try {
@@ -170,6 +201,11 @@ export class PrismaDebtRepository implements DebtRepository {
 
   /**
    * Debtを完済状態に更新する
+   * 
+   * @param id - 完済に設定するDebtのID
+   * @param repaidAt - 返済完了日
+   * @returns 更新されたDebtオブジェクト
+   * @throws {@link Error} - 指定したIDのDebtが存在しない場合
    */
   async markAsRepaid(id: string, repaidAt: Date): Promise<Debt> {
     try {
@@ -189,6 +225,10 @@ export class PrismaDebtRepository implements DebtRepository {
 
   /**
    * Debtを削除
+   * 
+   * @param id - 削除するDebtのID
+   * @returns 削除が成功した場合はtrue
+   * @throws {@link Error} - 指定したIDのDebtが存在しない場合
    */
   async delete(id: string): Promise<boolean> {
     try {

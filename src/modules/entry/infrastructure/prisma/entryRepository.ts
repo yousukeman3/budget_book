@@ -1,20 +1,33 @@
 // filepath: /app/src/modules/entry/infrastructure/prisma/entryRepository.ts
-import { PrismaClient, Entry as PrismaEntry, EntryType as PrismaEntryType, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { PrismaClient, Entry as PrismaEntry, EntryType as PrismaEntryType } from '@prisma/client';
 import { Entry } from '../../domain/entry';
-import { EntryType } from '../../../../shared/types/entry.types';
-import { EntryRepository, EntrySearchOptions } from '../../domain/entryRepository';
+import type { EntryType } from '../../../../shared/types/entry.types';
+import type { EntryRepository, EntrySearchOptions } from '../../domain/entryRepository';
 import { NotFoundError, SystemError, BusinessRuleError } from '../../../../shared/errors/AppError';
 import { ResourceType, SystemErrorCode, BusinessRuleErrorCode } from '../../../../shared/errors/ErrorCodes';
 import { Decimal, fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/utils/decimal';
 
 /**
  * PrismaによるEntryRepositoryの実装
+ * 
+ * 収支記録（Entry）のリポジトリインターフェースをPrismaを用いて実装したクラス。
+ * データベースとドメインモデルの変換ロジックを担当し、エラーハンドリング戦略に基づく
+ * 適切なエラー変換も行う。
  */
 export class PrismaEntryRepository implements EntryRepository {
+  /**
+   * コンストラクタ
+   * 
+   * @param prisma - Prismaクライアントインスタンス
+   */
   constructor(private prisma: PrismaClient) {}
 
   /**
    * PrismaのEntryモデルをドメインモデルに変換する
+   * 
+   * @param prismaEntry - Prismaから取得したEntryモデル
+   * @returns ドメイン層のEntryモデル
    */
   private toDomainModel(prismaEntry: PrismaEntry): Entry {
     return new Entry(
@@ -35,8 +48,14 @@ export class PrismaEntryRepository implements EntryRepository {
 
   /**
    * Prismaエラーを適切なアプリケーションエラーに変換する
+   * 
+   * @param error - 発生したPrismaエラーまたはその他の例外
+   * @param resourceId - 関連するリソースID（存在する場合）
+   * @throws {@link NotFoundError} - リソースが見つからない場合
+   * @throws {@link BusinessRuleError} - ビジネスルール違反の場合
+   * @throws {@link SystemError} - システムエラーの場合
    */
-  private handlePrismaError(error: any, resourceId?: string): never {
+  private handlePrismaError(error: unknown, resourceId?: string): never {
     // Prisma固有のエラー処理
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       // レコードが見つからない場合
@@ -72,6 +91,10 @@ export class PrismaEntryRepository implements EntryRepository {
 
   /**
    * IDによるEntry検索
+   * 
+   * @param id - 検索対象のEntryのID
+   * @returns 見つかったEntryオブジェクト、見つからない場合はundefined
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findById(id: string): Promise<Entry | undefined> {
     try {
@@ -87,6 +110,10 @@ export class PrismaEntryRepository implements EntryRepository {
 
   /**
    * 検索オプションによるEntry検索
+   * 
+   * @param options - 検索条件（日付範囲、タイプ、支払い方法IDなど）
+   * @returns 条件に合致するEntryオブジェクトの配列
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findByOptions(options: EntrySearchOptions): Promise<Entry[]> {
     try {
@@ -155,6 +182,10 @@ export class PrismaEntryRepository implements EntryRepository {
 
   /**
    * 特定の支払い方法に関連するEntryを取得
+   * 
+   * @param methodId - 対象の支払い方法ID
+   * @returns 関連するEntryオブジェクトの配列
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findByMethodId(methodId: string): Promise<Entry[]> {
     try {
@@ -171,6 +202,10 @@ export class PrismaEntryRepository implements EntryRepository {
 
   /**
    * 特定のカテゴリに関連するEntryを取得
+   * 
+   * @param categoryId - 対象のカテゴリID
+   * @returns 関連するEntryオブジェクトの配列
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findByCategoryId(categoryId: string): Promise<Entry[]> {
     try {
@@ -187,6 +222,10 @@ export class PrismaEntryRepository implements EntryRepository {
 
   /**
    * 特定のDebtに関連するEntryを取得
+   * 
+   * @param debtId - 対象の借金/貸付ID
+   * @returns 関連するEntryオブジェクトの配列（借入・貸付・返済など）
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findByDebtId(debtId: string): Promise<Entry[]> {
     try {
@@ -203,6 +242,11 @@ export class PrismaEntryRepository implements EntryRepository {
 
   /**
    * 新しいEntryを作成
+   * 
+   * @param entry - 作成するEntryオブジェクト
+   * @returns 作成されたEntryオブジェクト（IDが割り当てられている）
+   * @throws {@link BusinessRuleError} - 重複エントリの可能性がある場合
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async create(entry: Entry): Promise<Entry> {
     try {
@@ -258,6 +302,11 @@ export class PrismaEntryRepository implements EntryRepository {
 
   /**
    * 既存のEntryを更新
+   * 
+   * @param entry - 更新するEntryオブジェクト
+   * @returns 更新されたEntryオブジェクト
+   * @throws {@link NotFoundError} - 指定したIDのEntryが存在しない場合
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async update(entry: Entry): Promise<Entry> {
     try {
@@ -298,6 +347,10 @@ export class PrismaEntryRepository implements EntryRepository {
 
   /**
    * Entryを削除
+   * 
+   * @param id - 削除するEntryのID
+   * @returns 削除が成功した場合はtrue、対象が存在しない場合はfalse
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async delete(id: string): Promise<boolean> {
     try {
@@ -321,7 +374,13 @@ export class PrismaEntryRepository implements EntryRepository {
   }
 
   /**
-   * 日付範囲内のEntryの合計を計算
+   * 日付範囲内のEntryの合計残高を計算
+   * 
+   * @param methodId - 対象の支払い方法ID
+   * @param startDate - 開始日
+   * @param endDate - 終了日
+   * @returns 期間内のエントリによる残高への影響額合計
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async calculateBalance(methodId: string, startDate: Date, endDate: Date): Promise<Decimal> {
     try {
