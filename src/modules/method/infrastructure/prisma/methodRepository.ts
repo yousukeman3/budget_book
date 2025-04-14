@@ -12,7 +12,8 @@ import { MethodSchema, MethodCreateSchema, ActiveMethodSchema } from '../../../.
  * PrismaによるMethodRepositoryの実装
  * 
  * 支払い方法（Method）のリポジトリインターフェースをPrismaを用いて実装したクラス。
- * データベースとドメインモデル間の変換ロジックと、エラーハンドリングを担当する。
+ * データベースとドメインモデルの変換ロジックを担当し、エラーハンドリング戦略に基づく
+ * 適切なエラー変換も行う。
  */
 export class PrismaMethodRepository implements MethodRepository {
   // Zodスキーマを使用したバリデータのインスタンス
@@ -99,6 +100,7 @@ export class PrismaMethodRepository implements MethodRepository {
    * 
    * @param id - 検索対象のMethodのID
    * @returns 見つかったMethodオブジェクト、見つからない場合はundefined
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findById(id: string): Promise<Method | undefined> {
     try {
@@ -117,6 +119,7 @@ export class PrismaMethodRepository implements MethodRepository {
    * 
    * @param includeArchived - アーカイブされたMethodも含めるかどうか
    * @returns Methodオブジェクトの配列
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findAll(includeArchived: boolean = false): Promise<Method[]> {
     try {
@@ -143,6 +146,7 @@ export class PrismaMethodRepository implements MethodRepository {
    * 
    * @param options - 検索条件オプション
    * @returns 条件に合致するMethodオブジェクトの配列
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findByOptions(options: MethodSearchOptions): Promise<Method[]> {
     try {
@@ -184,6 +188,8 @@ export class PrismaMethodRepository implements MethodRepository {
    * 
    * @param method - 作成するMethodオブジェクト
    * @returns 作成されたMethodオブジェクト（IDが割り当てられている）
+   * @throws {@link BusinessRuleError} - ビジネスルール違反がある場合
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async create(method: Method): Promise<Method> {
     try {
@@ -198,6 +204,9 @@ export class PrismaMethodRepository implements MethodRepository {
 
       return this.toDomainModel(createdMethod);
     } catch (error) {
+      if (error instanceof BusinessRuleError) {
+        throw error; // BusinessRuleErrorはそのままスロー
+      }
       this.handlePrismaError(error);
     }
   }
@@ -208,9 +217,19 @@ export class PrismaMethodRepository implements MethodRepository {
    * @param method - 更新するMethodオブジェクト
    * @returns 更新されたMethodオブジェクト
    * @throws {@link NotFoundError} - 指定したIDのMethodが存在しない場合
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async update(method: Method): Promise<Method> {
     try {
+      // 対象のMethodが存在するか確認
+      const existingMethod = await this.prisma.method.findUnique({
+        where: { id: method.id }
+      });
+      
+      if (!existingMethod) {
+        throw new NotFoundError(ResourceType.METHOD, method.id);
+      }
+
       const updatedMethod = await this.prisma.method.update({
         where: { id: method.id },
         data: {
@@ -222,6 +241,9 @@ export class PrismaMethodRepository implements MethodRepository {
 
       return this.toDomainModel(updatedMethod);
     } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error; // NotFoundErrorはそのままスロー
+      }
       this.handlePrismaError(error, method.id);
     }
   }
@@ -233,6 +255,8 @@ export class PrismaMethodRepository implements MethodRepository {
    * @param archived - アーカイブ状態にするかどうか
    * @returns 更新されたMethodオブジェクト
    * @throws {@link NotFoundError} - 指定したIDのMethodが存在しない場合
+   * @throws {@link BusinessRuleError} - ビジネスルール違反がある場合
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async setArchiveStatus(id: string, archived: boolean): Promise<Method> {
     try {
@@ -244,7 +268,8 @@ export class PrismaMethodRepository implements MethodRepository {
       }
       
       // ドメインロジックを使って状態を変更（バリデータを注入）
-      const updatedDomainMethod = existingMethod.setArchived(archived, this.methodValidator);
+      // バリデーションを実行するが、結果は直接DBに保存するため変数は不要
+      existingMethod.setArchived(archived, this.methodValidator);
       
       // DBを更新
       const updatedMethod = await this.prisma.method.update({
@@ -255,7 +280,7 @@ export class PrismaMethodRepository implements MethodRepository {
       return this.toDomainModel(updatedMethod);
     } catch (error) {
       if (error instanceof NotFoundError || error instanceof BusinessRuleError) {
-        throw error;
+        throw error; // 既知のエラーはそのままスロー
       }
       this.handlePrismaError(error, id);
     }
@@ -268,6 +293,7 @@ export class PrismaMethodRepository implements MethodRepository {
    * @returns 削除が成功した場合はtrue
    * @throws {@link BusinessRuleError} - Methodが他のリソースから参照されている場合
    * @throws {@link NotFoundError} - 指定したIDのMethodが存在しない場合
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async delete(id: string): Promise<boolean> {
     try {
@@ -297,13 +323,22 @@ export class PrismaMethodRepository implements MethodRepository {
         );
       }
 
+      // 削除前にMethodが存在するか確認
+      const existingMethod = await this.prisma.method.findUnique({
+        where: { id }
+      });
+      
+      if (!existingMethod) {
+        return false; // 存在しない場合はfalseを返す
+      }
+
       await this.prisma.method.delete({
         where: { id }
       });
       return true;
     } catch (error) {
       if (error instanceof BusinessRuleError) {
-        throw error;
+        throw error; // BusinessRuleErrorはそのままスロー
       }
       this.handlePrismaError(error, id);
     }

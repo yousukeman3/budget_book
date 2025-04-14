@@ -11,7 +11,8 @@ import { TransferSchema, TransferCreateSchema, SufficientFundsTransferSchema } f
  * PrismaによるTransferRepositoryの実装
  * 
  * 口座間振替（Transfer）のリポジトリインターフェースをPrismaを用いて実装したクラス。
- * データベースとドメインモデルの変換ロジックと、振替に関連するビジネスルールの検証を担当する。
+ * データベースとドメインモデルの変換ロジックを担当し、エラーハンドリング戦略に基づく
+ * 適切なエラー変換も行う。また、振替に関連するビジネスルールの検証も実施する。
  */
 export class PrismaTransferRepository implements TransferRepository {
   // Zodスキーマを使用したバリデータのインスタンス
@@ -92,6 +93,7 @@ export class PrismaTransferRepository implements TransferRepository {
    * 
    * @param id - 検索対象のTransferのID
    * @returns 見つかったTransferオブジェクト、見つからない場合はundefined
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findById(id: string): Promise<Transfer | undefined> {
     try {
@@ -110,6 +112,7 @@ export class PrismaTransferRepository implements TransferRepository {
    * 
    * @param rootEntryId - 対応するEntryのID
    * @returns 見つかったTransferオブジェクト、見つからない場合はundefined
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findByRootEntryId(rootEntryId: string): Promise<Transfer | undefined> {
     try {
@@ -128,6 +131,7 @@ export class PrismaTransferRepository implements TransferRepository {
    * 
    * @param options - 検索条件オプション
    * @returns 条件に合致するTransferオブジェクトの配列
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findByOptions(options: TransferSearchOptions): Promise<Transfer[]> {
     try {
@@ -178,6 +182,7 @@ export class PrismaTransferRepository implements TransferRepository {
    * 
    * @param methodId - 検索対象のMethodのID
    * @returns 関連するTransferオブジェクトの配列
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async findByMethodId(methodId: string): Promise<Transfer[]> {
     try {
@@ -203,6 +208,7 @@ export class PrismaTransferRepository implements TransferRepository {
    * @param transfer - 作成するTransferオブジェクト
    * @returns 作成されたTransferオブジェクト（IDが割り当てられている）
    * @throws {@link BusinessRuleError} - 同一口座間の振替など、ビジネスルール違反の場合
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async create(transfer: Transfer): Promise<Transfer> {
     try {
@@ -250,9 +256,19 @@ export class PrismaTransferRepository implements TransferRepository {
    * @param transfer - 更新するTransferオブジェクト
    * @returns 更新されたTransferオブジェクト
    * @throws {@link NotFoundError} - 指定したIDのTransferが存在しない場合
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async update(transfer: Transfer): Promise<Transfer> {
     try {
+      // 対象のTransferが存在するか確認
+      const existingTransfer = await this.prisma.transfer.findUnique({
+        where: { id: transfer.id }
+      });
+      
+      if (!existingTransfer) {
+        throw new NotFoundError(ResourceType.TRANSFER, transfer.id);
+      }
+      
       // fromMethodId、toMethodIdの変更は禁止
       // これらを変更する場合は、削除して再作成する必要がある
       // rootEntryIdも変更不可
@@ -266,6 +282,9 @@ export class PrismaTransferRepository implements TransferRepository {
 
       return this.toDomainModel(updatedTransfer);
     } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error; // NotFoundErrorはそのままスロー
+      }
       this.handlePrismaError(error, transfer.id);
     }
   }
@@ -276,17 +295,17 @@ export class PrismaTransferRepository implements TransferRepository {
    * @param id - 削除するTransferのID
    * @returns 削除が成功した場合はtrue
    * @throws {@link NotFoundError} - 指定したIDのTransferが存在しない場合
+   * @throws {@link SystemError} - データベースエラーが発生した場合
    */
   async delete(id: string): Promise<boolean> {
     try {
       // Transfer削除前に存在確認
       const existingTransfer = await this.prisma.transfer.findUnique({
-        where: { id },
-        select: { id: true }
+        where: { id }
       });
       
       if (!existingTransfer) {
-        throw new NotFoundError(ResourceType.TRANSFER, id);
+        return false; // 存在しない場合はfalseを返す
       }
 
       // 注意：実際のアプリケーションレイヤーでは、
@@ -297,6 +316,9 @@ export class PrismaTransferRepository implements TransferRepository {
       });
       return true;
     } catch (error) {
+      if (error instanceof BusinessRuleError) {
+        throw error; // BusinessRuleErrorはそのままスロー
+      }
       this.handlePrismaError(error, id);
     }
   }
