@@ -7,6 +7,8 @@ import type { EntryRepository, EntrySearchOptions } from '../../domain/entryRepo
 import { NotFoundError, SystemError, BusinessRuleError } from '../../../../shared/errors/AppError';
 import { ResourceType, SystemErrorCode, BusinessRuleErrorCode } from '../../../../shared/errors/ErrorCodes';
 import { Decimal, fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/utils/decimal';
+import { ZodValidator } from '../../../../shared/validation/ZodValidator';
+import { EntrySchema, EntryCreateSchema } from '../../../../shared/zod/schema/EntrySchema';
 
 /**
  * PrismaによるEntryRepositoryの実装
@@ -16,6 +18,10 @@ import { Decimal, fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/
  * 適切なエラー変換も行う。
  */
 export class PrismaEntryRepository implements EntryRepository {
+  // Zodスキーマを使用したバリデータのインスタンス
+  private entryValidator = new ZodValidator(EntrySchema);
+  private entryCreateValidator = new ZodValidator(EntryCreateSchema);
+
   /**
    * コンストラクタ
    * 
@@ -42,7 +48,8 @@ export class PrismaEntryRepository implements EntryRepository {
       prismaEntry.note ?? undefined,
       prismaEntry.evidenceNote ?? undefined,
       prismaEntry.debtId ?? undefined,
-      prismaEntry.createdAt
+      prismaEntry.createdAt,
+      this.entryValidator // バリデータを注入
     );
   }
 

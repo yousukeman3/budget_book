@@ -5,6 +5,8 @@ import type { MethodRepository, MethodSearchOptions } from '../../domain/methodR
 import { NotFoundError, SystemError, BusinessRuleError } from '../../../../shared/errors/AppError';
 import { ResourceType, SystemErrorCode, BusinessRuleErrorCode } from '../../../../shared/errors/ErrorCodes';
 import { fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/utils/decimal';
+import { ZodValidator } from '../../../../shared/validation/ZodValidator';
+import { MethodSchema, MethodCreateSchema, ActiveMethodSchema } from '../../../../shared/zod/schema/MethodSchema';
 
 /**
  * PrismaによるMethodRepositoryの実装
@@ -13,6 +15,11 @@ import { fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/utils/dec
  * データベースとドメインモデル間の変換ロジックと、エラーハンドリングを担当する。
  */
 export class PrismaMethodRepository implements MethodRepository {
+  // Zodスキーマを使用したバリデータのインスタンス
+  private methodValidator = new ZodValidator(MethodSchema);
+  private methodCreateValidator = new ZodValidator(MethodCreateSchema);
+  private activeMethodValidator = new ZodValidator(ActiveMethodSchema);
+  
   /**
    * コンストラクタ
    * 
@@ -31,7 +38,8 @@ export class PrismaMethodRepository implements MethodRepository {
       prismaMethod.id,
       prismaMethod.name,
       prismaMethod.initialBalance != null ? fromPrismaDecimal(prismaMethod.initialBalance) : null,
-      prismaMethod.archived ?? false
+      prismaMethod.archived ?? false,
+      this.methodValidator // バリデータを注入
     );
   }
 
@@ -228,6 +236,17 @@ export class PrismaMethodRepository implements MethodRepository {
    */
   async setArchiveStatus(id: string, archived: boolean): Promise<Method> {
     try {
+      // 既存のMethodを取得
+      const existingMethod = await this.findById(id);
+      
+      if (!existingMethod) {
+        throw new NotFoundError(ResourceType.METHOD, id);
+      }
+      
+      // ドメインロジックを使って状態を変更（バリデータを注入）
+      const updatedDomainMethod = existingMethod.setArchived(archived, this.methodValidator);
+      
+      // DBを更新
       const updatedMethod = await this.prisma.method.update({
         where: { id },
         data: { archived }
@@ -235,6 +254,9 @@ export class PrismaMethodRepository implements MethodRepository {
 
       return this.toDomainModel(updatedMethod);
     } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BusinessRuleError) {
+        throw error;
+      }
       this.handlePrismaError(error, id);
     }
   }

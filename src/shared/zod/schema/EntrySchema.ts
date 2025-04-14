@@ -42,22 +42,10 @@ const baseEntrySchema = z.object({
    * 金額
    * 
    * @remarks
-   * 正の数値（Decimal）である必要があります
-   * 
-   * @throws 金額が0以下の場合はBusinessRuleErrorCode.INVALID_VALUE_RANGEエラー
+   * Decimal型の値を受け付けます
+   * 値の検証（正の値であることなど）はドメインモデル内で行われます
    */
-  amount: z.instanceof(Decimal).superRefine((amount, ctx) => {
-    if (amount.lessThanOrEqualTo(new Decimal(0))) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: '金額は0より大きい値を指定してください',
-        path: ['amount'],
-        params: {
-          errorCode: BusinessRuleErrorCode.INVALID_VALUE_RANGE
-        }
-      });
-    }
-  }),
+  amount: z.instanceof(Decimal),
   
   /**
    * 支払い方法ID

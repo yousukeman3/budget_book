@@ -8,8 +8,7 @@ import { toDecimal } from '../../../shared/utils/decimal';
 import type { Decimal } from '../../../shared/utils/decimal';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
-import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
-import { MethodSchema, MethodCreateSchema, ActiveMethodSchema } from '../../../shared/zod/schema/MethodSchema';
+import type { Validator } from '../../../shared/validation/Validator';
 
 /**
  * Method（支払い方法）のドメインインターフェース
@@ -68,17 +67,38 @@ export class Method {
    * @param name - 支払い方法の表示名称
    * @param initialBalance - 初期残高（任意）
    * @param archived - アーカイブ状態（任意、デフォルトは`false`）
+   * @param validator - オプションのバリデーター。指定された場合、追加のバリデーションを実行
    * @throws バリデーション失敗時にBusinessRuleErrorをスローします
    */
   constructor(
     public readonly id: string,
     public readonly name: string,
     public readonly initialBalance: Decimal | null = null,
-    public readonly archived: boolean = false
+    public readonly archived: boolean = false,
+    validator?: Validator<unknown>
   ) {
-    // インスタンス作成時にZodスキーマでバリデーション
-    // これによりすべての不変条件をチェックする
-    validateWithSchema(MethodSchema, this);
+    // 名前は空でないことを確認（ドメインの不変条件）
+    if (!name.trim()) {
+      throw new BusinessRuleError(
+        '支払い方法名を入力してください',
+        BusinessRuleErrorCode.INVALID_INPUT,
+        { field: 'name' }
+      );
+    }
+
+    // 名前の長さは50文字以下（ドメインの不変条件）
+    if (name.length > 50) {
+      throw new BusinessRuleError(
+        '支払い方法名は50文字以内で入力してください',
+        BusinessRuleErrorCode.INVALID_INPUT,
+        { field: 'name', length: name.length }
+      );
+    }
+
+    // 外部から注入されたバリデーターがあれば使用
+    if (validator) {
+      validator.validate(this);
+    }
   }
 
   /**
@@ -86,15 +106,19 @@ export class Method {
    * バリデーションも実施します
    * 
    * @param data - 支払い方法作成のための入力データ
+   * @param validator - オプションのバリデーター。入力データの検証に使用
    * @returns 新しいMethodオブジェクト
    * @throws バリデーション失敗時にBusinessRuleErrorをスローします
    */
-  static create(data: {
-    name: string;
-    initialBalance?: Decimal | number | string | null;
-    archived?: boolean;
-    id?: string;
-  }): Method {
+  static create(
+    data: {
+      name: string;
+      initialBalance?: Decimal | number | string | null;
+      archived?: boolean;
+      id?: string;
+    },
+    validator?: Validator<unknown>
+  ): Method {
     // id がない場合は UUID を生成
     const id = data.id || crypto.randomUUID();
     
@@ -107,19 +131,25 @@ export class Method {
       // アーカイブ状態のデフォルトは`false`
       const archived = data.archived ?? false;
       
-      // データを検証（これにより型安全性が確保される）
-      const validData = validateWithSchema(MethodCreateSchema, {
+      // 入力データのバリデーション
+      let validData = { 
         ...data,
         initialBalance,
         archived,
-        id // 明示的にidを設定
-      });
+        id
+      };
+      
+      // 外部から注入されたバリデーターがあれば使用
+      if (validator) {
+        validData = validator.validate(validData) as typeof validData;
+      }
       
       return new Method(
         id,
         validData.name,
         validData.initialBalance,
-        validData.archived
+        validData.archived,
+        validator // バリデーターを引き継ぐ
       );
     } catch (error) {
       // エラーを明示的に BusinessRuleError にラップして詳細を追加
@@ -145,21 +175,35 @@ export class Method {
 
   /**
    * アーカイブされている場合にエラーを投げる
+   * @param validator - オプションのバリデーター。アーカイブ状態を検証する
    * @throws アーカイブされている場合にBusinessRuleErrorをスローします
    * 
    * 重要な操作の前にこのチェックを行います
    */
-  ensureActive(): void {
-    validateWithSchema(ActiveMethodSchema, this);
+  ensureActive(validator?: Validator<unknown>): void {
+    // アーカイブされているかをチェック（ドメインの不変条件）
+    if (this.archived) {
+      throw new BusinessRuleError(
+        'この支払い方法はアーカイブされているため使用できません',
+        BusinessRuleErrorCode.METHOD_ARCHIVED,
+        { methodId: this.id }
+      );
+    }
+    
+    // 追加のバリデーションがあれば実行
+    if (validator) {
+      validator.validate(this);
+    }
   }
 
   /**
    * アーカイブ状態を変更したMethodオブジェクトを生成
    * 
    * @param archived - アーカイブ状態（`true`でアーカイブ）
+   * @param validator - オプションのバリデーター
    * @returns 新しく設定された状態のMethodオブジェクト
    */
-  setArchived(archived: boolean): Method {
+  setArchived(archived: boolean, validator?: Validator<unknown>): Method {
     if (this.archived === archived) {
       return this; // 状態が変わらなければ自身を返す
     }
@@ -168,7 +212,8 @@ export class Method {
       this.id,
       this.name,
       this.initialBalance,
-      archived
+      archived,
+      validator // バリデーターを引き継ぐ
     );
   }
 
@@ -176,20 +221,21 @@ export class Method {
    * 名前を変更したMethodオブジェクトを生成
    * 
    * @param name - 新しい名前
+   * @param validator - オプションのバリデーター
    * @returns 新しい名前を持つMethodオブジェクト
    * @throws バリデーション失敗時にBusinessRuleErrorをスローします
    */
-  rename(name: string): Method {
+  rename(name: string, validator?: Validator<unknown>): Method {
     if (this.name === name) {
       return this; // 名前が変わらなければ自身を返す
     }
     
-    // 名前のバリデーションはZodスキーマに委譲
     return new Method(
       this.id,
       name,
       this.initialBalance,
-      this.archived
+      this.archived,
+      validator // バリデーターを引き継ぐ
     );
   }
 
@@ -197,9 +243,10 @@ export class Method {
    * 初期残高を変更した新しいMethodオブジェクトを生成
    * 
    * @param initialBalance - 新しい初期残高（Decimal、数値または文字列からDecimalに変換、または`null`）
+   * @param validator - オプションのバリデーター
    * @returns 初期残高を変更した新しいMethodオブジェクト
    */
-  setInitialBalance(initialBalance: Decimal | number | string | null): Method {
+  setInitialBalance(initialBalance: Decimal | number | string | null, validator?: Validator<unknown>): Method {
     // nullでない場合はDecimal型に変換
     const decimalBalance = initialBalance != null ? toDecimal(initialBalance) : null;
     
@@ -212,7 +259,8 @@ export class Method {
       this.id,
       this.name,
       decimalBalance,
-      this.archived
+      this.archived,
+      validator // バリデーターを引き継ぐ
     );
   }
 }

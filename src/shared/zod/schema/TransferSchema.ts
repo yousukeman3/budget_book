@@ -66,9 +66,8 @@ const baseTransferSchema = z.object({
 /**
  * Transferドメインオブジェクト用のZodスキーマ
  * 
- * ドメインモデルの不変条件を表現し、型安全性を確保します
- * 
- * @throws 振替元と振替先が同じMethodの場合はBusinessRuleErrorCode.IDENTICAL_ACCOUNTSエラー
+ * ドメインモデルの型安全性を確保します
+ * 振替元と振替先が同じMethodの場合のチェックはドメインモデル内で行われます
  * 
  * @example
  * ```typescript
@@ -81,36 +80,15 @@ const baseTransferSchema = z.object({
  *   date: new Date(),
  *   note: "給料振込"
  * };
- * 
- * // 無効な振替データ（同一口座間の振替）
- * const invalidTransfer = {
- *   ...validTransfer,
- *   toMethodId: validTransfer.fromMethodId // エラー: 同じ支払い方法間での振替はできません
- * };
  * ```
  */
-export const TransferSchema = baseTransferSchema.superRefine((transfer, ctx) => {
-  // 振替元と振替先のMethodは異なる必要がある
-  if (transfer.fromMethodId === transfer.toMethodId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: '同じ支払い方法間での振替はできません',
-      path: ['toMethodId'],
-      params: {
-        errorCode: BusinessRuleErrorCode.IDENTICAL_ACCOUNTS,
-        fromMethodId: transfer.fromMethodId,
-        toMethodId: transfer.toMethodId
-      }
-    });
-  }
-});
+export const TransferSchema = baseTransferSchema;
 
 /**
  * Transfer作成時の入力スキーマ
  * 
  * IDのみ任意（自動生成可能）、他は必須フィールドとなります
- * 
- * @throws 振替元と振替先が同じMethodの場合はBusinessRuleErrorCode.IDENTICAL_ACCOUNTSエラー
+ * 振替元と振替先が同じMethodの場合のチェックはドメインモデル内で行われます
  * 
  * @example
  * ```typescript
@@ -132,21 +110,6 @@ export const TransferCreateSchema = baseTransferSchema
   })
   .extend({ 
     id: z.string().uuid().optional() 
-  })
-  .superRefine((transfer, ctx) => {
-    // 振替元と振替先のMethodは異なる必要がある
-    if (transfer.fromMethodId === transfer.toMethodId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: '同じ支払い方法間での振替はできません',
-        path: ['toMethodId'],
-        params: {
-          errorCode: BusinessRuleErrorCode.IDENTICAL_ACCOUNTS,
-          fromMethodId: transfer.fromMethodId,
-          toMethodId: transfer.toMethodId
-        }
-      });
-    }
   });
 
 /**

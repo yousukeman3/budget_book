@@ -6,8 +6,7 @@
  */
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
-import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
-import { TransferSchema, TransferCreateSchema, SufficientFundsTransferSchema } from '../../../shared/zod/schema/TransferSchema';
+import type { Validator } from '../../../shared/validation/Validator';
 
 /**
  * Transfer（口座間振替）のドメインインターフェース
@@ -81,6 +80,7 @@ export class Transfer {
    * @param toMethodId - 振替先のMethodID
    * @param date - 振替日
    * @param note - 備考（任意）
+   * @param validator - オプションのバリデーター。指定された場合、追加のバリデーションを実行
    * @throws バリデーション失敗時にBusinessRuleErrorをスローします
    */
   constructor(
@@ -89,11 +89,25 @@ export class Transfer {
     public readonly fromMethodId: string,
     public readonly toMethodId: string,
     public readonly date: Date,
-    public readonly note: string | null = null
+    public readonly note: string | null = null,
+    validator?: Validator<unknown>
   ) {
-    // インスタンス作成時にZodスキーマでバリデーション
-    // これによりすべての不変条件をチェックする
-    validateWithSchema(TransferSchema, this);
+    // 不変条件のチェック - 振替元と振替先のMethodは異なる必要がある
+    if (fromMethodId === toMethodId) {
+      throw new BusinessRuleError(
+        '同じ支払い方法間での振替はできません',
+        BusinessRuleErrorCode.IDENTICAL_ACCOUNTS,
+        { 
+          fromMethodId: fromMethodId,
+          toMethodId: toMethodId
+        }
+      );
+    }
+
+    // 外部から注入されたバリデーターがあれば使用
+    if (validator) {
+      validator.validate(this);
+    }
   }
 
   /**
@@ -101,26 +115,32 @@ export class Transfer {
    * バリデーションも実施します
    * 
    * @param data - 振替作成のための入力データ
+   * @param validator - オプションのバリデーター。入力データの検証に使用
    * @returns 新しいTransferオブジェクト
    * @throws バリデーション失敗時にBusinessRuleErrorをスローします
    */
-  static create(data: {
-    rootEntryId: string;
-    fromMethodId: string;
-    toMethodId: string;
-    date: Date;
-    note?: string | null;
-    id?: string;
-  }): Transfer {
+  static create(
+    data: {
+      rootEntryId: string;
+      fromMethodId: string;
+      toMethodId: string;
+      date: Date;
+      note?: string | null;
+      id?: string;
+    },
+    validator?: Validator<unknown>
+  ): Transfer {
     // id がない場合は UUID を生成
     const id = data.id || crypto.randomUUID();
     
     try {
-      // データを検証（これにより型安全性が確保される）
-      const validData = validateWithSchema(TransferCreateSchema, {
-        ...data,
-        id // 明示的にidを設定
-      });
+      // 入力データのバリデーション
+      let validData = { ...data, id };
+      
+      // 外部から注入されたバリデーターがあれば使用
+      if (validator) {
+        validData = validator.validate(validData) as typeof validData;
+      }
       
       return new Transfer(
         id,
@@ -128,7 +148,8 @@ export class Transfer {
         validData.fromMethodId,
         validData.toMethodId,
         validData.date,
-        validData.note || null
+        validData.note || null,
+        validator // バリデーターを引き継ぐ
       );
     } catch (error) {
       // エラーを明示的に BusinessRuleError にラップして詳細を追加
@@ -146,29 +167,35 @@ export class Transfer {
 
   /**
    * 振替元の残高が十分かをチェック
+   * 
+   * @param validator - 残高チェック用のバリデーター
    * @throws 残高不足の場合にBusinessRuleErrorをスローします
    * 
    * 実際の残高チェックはリポジトリ層で行われますが、このメソッドはその前に呼び出されるべきです
    */
-  checkSufficientFunds(): void {
-    // SufficientFundsTransferSchemaは実際のチェックはリポジトリ層に委ねる
-    validateWithSchema(SufficientFundsTransferSchema, this);
+  checkSufficientFunds(validator?: Validator<unknown>): void {
+    // 残高チェック用のバリデーターが渡された場合は使用
+    if (validator) {
+      validator.validate(this);
+    }
   }
 
   /**
    * 振替元と振替先のMethodを入れ替えた新しいTransferオブジェクトを生成
    * 金額自体は変わらないが、口座間の移動方向が逆になります
    * 
+   * @param validator - オプションのバリデーター
    * @returns 方向を逆にしたTransferオブジェクト
    */
-  reverse(): Transfer {
+  reverse(validator?: Validator<unknown>): Transfer {
     return new Transfer(
       this.id,
       this.rootEntryId,
       this.toMethodId, // fromとtoを入れ替え
       this.fromMethodId,
       this.date,
-      this.note
+      this.note,
+      validator
     );
   }
 

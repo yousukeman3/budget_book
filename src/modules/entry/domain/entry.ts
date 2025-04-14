@@ -8,8 +8,7 @@ import { Decimal, toDecimal } from '../../../shared/utils/decimal';
 import { BusinessRuleError } from '../../../shared/errors/AppError';
 import { BusinessRuleErrorCode } from '../../../shared/errors/ErrorCodes';
 import { EntryType } from '../../../shared/types/entry.types';
-import { EntrySchema, EntryCreateSchema } from '../../../shared/zod/schema/EntrySchema';
-import { validateWithSchema } from '../../../shared/validation/validateWithSchema';
+import type { Validator } from '../../../shared/validation/Validator';
 
 /**
  * Entryモデル（収支記録）インターフェース
@@ -195,6 +194,7 @@ export class Entry {
    * @param evidenceNote - 証憑情報（任意）
    * @param debtId - 関連する借入/貸付ID（任意）
    * @param createdAt - 作成日時
+   * @param validator - オプションのバリデーター。指定された場合、追加のバリデーションを実行
    * @throws バリデーション失敗時にBusinessRuleErrorをスローします
    */
   constructor(
@@ -203,17 +203,35 @@ export class Entry {
     public readonly date: Date,
     public readonly amount: Decimal,
     public readonly methodId: string,
-    public readonly categoryId?: string,
-    public readonly purpose?: string,
-    public readonly privatePurpose?: string,
-    public readonly note?: string,
-    public readonly evidenceNote?: string,
-    public readonly debtId?: string,
-    public readonly createdAt: Date = new Date()
+    public readonly categoryId?: string | null,
+    public readonly purpose?: string | null,
+    public readonly privatePurpose?: string | null,
+    public readonly note?: string | null,
+    public readonly evidenceNote?: string | null,
+    public readonly debtId?: string | null,
+    public readonly createdAt: Date = new Date(),
+    validator?: Validator<unknown>
   ) {
-    // インスタンス作成時にZodスキーマでバリデーションを一元的に行う
-    // Zodスキーマには金額の正値チェックやエントリタイプと関連フィールドの整合性チェックが含まれている
-    validateWithSchema(EntrySchema, this);
+    // 不変条件のチェック
+    validateEntryBusinessRules({
+      id,
+      type,
+      date,
+      amount: amount.toNumber(), // validateEntryBusinessRulesはnumber型を期待
+      methodId,
+      categoryId,
+      purpose,
+      privatePurpose,
+      note,
+      evidenceNote,
+      debtId,
+      createdAt
+    });
+
+    // 外部から注入されたバリデーターがあれば使用
+    if (validator) {
+      validator.validate(this);
+    }
   }
 
   /**
@@ -221,23 +239,27 @@ export class Entry {
    * バリデーションも実施します
    * 
    * @param data - エントリ作成のための入力データ
+   * @param validator - オプションのバリデーター。入力データの検証に使用
    * @returns 新しいEntryオブジェクト
    * @throws バリデーション失敗時にBusinessRuleErrorをスローします
    */
-  static create(data: {
-    type: EntryType;
-    date: Date;
-    amount: Decimal | number | string;
-    methodId: string;
-    categoryId?: string;
-    purpose?: string;
-    privatePurpose?: string;
-    note?: string;
-    evidenceNote?: string;
-    debtId?: string;
-    id?: string;
-    createdAt?: Date;
-  }): Entry {
+  static create(
+    data: {
+      type: EntryType;
+      date: Date;
+      amount: Decimal | number | string;
+      methodId: string;
+      categoryId?: string | null;
+      purpose?: string | null;
+      privatePurpose?: string | null;
+      note?: string | null;
+      evidenceNote?: string | null;
+      debtId?: string | null;
+      id?: string;
+      createdAt?: Date;
+    },
+    validator?: Validator<unknown>
+  ): Entry {
     // id がない場合は UUID を生成
     const id = data.id || crypto.randomUUID();
     const createdAt = data.createdAt || new Date();
@@ -246,13 +268,13 @@ export class Entry {
       // 金額をDecimal型に変換
       const amount = toDecimal(data.amount);
       
-      // データを検証（これにより型安全性が確保される）
-      const validData = validateWithSchema(EntryCreateSchema, {
-        ...data,
-        amount,
-        id, // 明示的にidを設定
-        createdAt
-      });
+      // 入力データのバリデーション
+      let validData = { ...data, amount, id, createdAt };
+      
+      // 外部から注入されたバリデーターがあれば使用
+      if (validator) {
+        validData = validator.validate(validData) as typeof validData;
+      }
       
       return new Entry(
         id,
@@ -266,7 +288,8 @@ export class Entry {
         validData.note,
         validData.evidenceNote,
         validData.debtId,
-        validData.createdAt
+        validData.createdAt,
+        validator // バリデーターを引き継ぐ
       );
     } catch (error) {
       // エラーを明示的に BusinessRuleError にラップして詳細を追加

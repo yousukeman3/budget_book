@@ -4,6 +4,8 @@ import { Debt } from '../../domain/debt';
 import type { DebtRepository, DebtSearchOptions } from '../../domain/debtRepository';
 import type { DebtType } from '../../../../shared/types/debt.types';
 import { fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/utils/decimal';
+import { ZodValidator } from '../../../../shared/validation/ZodValidator';
+import { DebtSchema, DebtRepaymentSchema } from '../../../../shared/zod/schema/DebtSchema';
 
 /**
  * PrismaによるDebtRepositoryの実装
@@ -12,6 +14,10 @@ import { fromPrismaDecimal, toPrismaDecimal } from '../../../../shared/utils/dec
  * データベースとドメインモデルの変換ロジックを担当する。
  */
 export class PrismaDebtRepository implements DebtRepository {
+  // Zodスキーマを使用したバリデータのインスタンス
+  private debtValidator = new ZodValidator(DebtSchema);
+  private debtRepaymentValidator = new ZodValidator(DebtRepaymentSchema);
+  
   /**
    * コンストラクタ
    * 
@@ -34,7 +40,8 @@ export class PrismaDebtRepository implements DebtRepository {
       fromPrismaDecimal(prismaDebt.amount), // Prisma DecimalからDecimal.jsに変換
       prismaDebt.counterpart,
       prismaDebt.repaidAt ?? undefined,
-      prismaDebt.memo ?? undefined
+      prismaDebt.memo ?? undefined,
+      this.debtValidator // バリデータを注入
     );
   }
 
@@ -209,6 +216,17 @@ export class PrismaDebtRepository implements DebtRepository {
    */
   async markAsRepaid(id: string, repaidAt: Date): Promise<Debt> {
     try {
+      // まず既存のDebtを取得
+      const existingDebt = await this.findById(id);
+      
+      if (!existingDebt) {
+        throw new Error(`Debt with ID ${id} not found.`);
+      }
+      
+      // ドメインロジックを使って返済マーク（バリデータを注入）
+      const repaidDebt = existingDebt.markAsRepaid(repaidAt, this.debtRepaymentValidator);
+      
+      // 更新を実行
       const updatedDebt = await this.prisma.debt.update({
         where: { id },
         data: { repaidAt }

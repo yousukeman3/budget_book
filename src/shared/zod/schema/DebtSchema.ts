@@ -48,30 +48,10 @@ const baseDebtSchema = z.object({
   /**
    * 金額（元本）
    * 
-   * 正の数値（Decimal）である必要があります
-   *
-   * @throws 金額が0以下の場合はBusinessRuleErrorCode.INVALID_VALUE_RANGEエラー
-   * @example
-   * ```typescript
-   * // 有効な金額
-   * const validAmount = new Decimal(1000);
-   * // 無効な金額（バリデーションエラー）
-   * const invalidAmount = new Decimal(0); // エラー: 金額は0より大きい値である必要があります
-   * ```
+   * Decimal型の値を受け付けます
+   * 値の検証（正の値であることなど）はドメインモデル内で行われます
    */
-  amount: z.instanceof(Decimal).superRefine((amount, ctx) => {
-    if (amount.lessThanOrEqualTo(0)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: '貸借金額は0より大きい値である必要があります',
-        path: ['amount'],
-        params: {
-          errorCode: BusinessRuleErrorCode.INVALID_VALUE_RANGE
-        }
-      });
-      return false;
-    }
-  }),
+  amount: z.instanceof(Decimal),
   
   /**
    * 相手の名前や識別情報

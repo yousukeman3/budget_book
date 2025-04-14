@@ -4,6 +4,8 @@ import { Transfer } from '../../domain/transfer';
 import type { TransferRepository, TransferSearchOptions } from '../../domain/transferRepository';
 import { NotFoundError, SystemError, BusinessRuleError } from '../../../../shared/errors/AppError';
 import { ResourceType, SystemErrorCode, BusinessRuleErrorCode } from '../../../../shared/errors/ErrorCodes';
+import { ZodValidator } from '../../../../shared/validation/ZodValidator';
+import { TransferSchema, TransferCreateSchema, SufficientFundsTransferSchema } from '../../../../shared/zod/schema/TransferSchema';
 
 /**
  * PrismaによるTransferRepositoryの実装
@@ -12,6 +14,11 @@ import { ResourceType, SystemErrorCode, BusinessRuleErrorCode } from '../../../.
  * データベースとドメインモデルの変換ロジックと、振替に関連するビジネスルールの検証を担当する。
  */
 export class PrismaTransferRepository implements TransferRepository {
+  // Zodスキーマを使用したバリデータのインスタンス
+  private transferValidator = new ZodValidator(TransferSchema);
+  private transferCreateValidator = new ZodValidator(TransferCreateSchema);
+  private sufficientFundsValidator = new ZodValidator(SufficientFundsTransferSchema);
+
   /**
    * コンストラクタ
    * 
@@ -32,7 +39,8 @@ export class PrismaTransferRepository implements TransferRepository {
       prismaTransfer.fromMethodId,
       prismaTransfer.toMethodId,
       prismaTransfer.date,
-      prismaTransfer.note ?? null
+      prismaTransfer.note ?? null,
+      this.transferValidator // バリデータを注入
     );
   }
 
@@ -209,6 +217,9 @@ export class PrismaTransferRepository implements TransferRepository {
           }
         );
       }
+      
+      // 残高チェック（必要に応じて）
+      transfer.checkSufficientFunds(this.sufficientFundsValidator);
       
       // EntryとTransferは常に一緒に作成する必要がある
       // ここでは、Transferのみを作成するが、実際のアプリケーションレイヤーで
