@@ -302,10 +302,15 @@ export class PrismaDebtRepository implements DebtRepository {
    * @throws {@link BusinessRuleError} - ビジネスルール違反がある場合
    * @throws {@link SystemError} - データベースエラーが発生した場合
    */
-  async markAsRepaid(id: string, repaidAt: Date): Promise<Debt> {
+  async markAsRepaid(id: string, repaidAt: Date): Promise<Debt> 
+
+  async markAsRepaid(id: string): Promise<Debt> 
+  
+  async markAsRepaid(id: string, repaidAt?: Date): Promise<Debt> {
     try {
       // まず既存のDebtを取得
       const existingDebt = await this.findById(id);
+      repaidAt = repaidAt || new Date();
       
       if (!existingDebt) {
         throw new NotFoundError(ResourceType.DEBT, id);
@@ -313,12 +318,12 @@ export class PrismaDebtRepository implements DebtRepository {
       
       // ドメインロジックを使って返済マーク（バリデータを注入）
       // 返済状態のバリデーションを実行するが、結果は直接DBに保存するため変数は不要
-      existingDebt.markAsRepaid(repaidAt, this.debtRepaymentValidator);
+      existingDebt.markAsRepaid(repaidAt, this.debtValidator);
       
       // 更新を実行
       const updatedDebt = await this.prisma.debt.update({
         where: { id },
-        data: { repaidAt }
+        data: { repaidAt: repaidAt }
       });
       
       return this.toDomainModel(updatedDebt);
@@ -328,6 +333,7 @@ export class PrismaDebtRepository implements DebtRepository {
       }
       this.handlePrismaError(error, id);
     }
+
   }
 
   /**

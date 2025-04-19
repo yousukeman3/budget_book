@@ -28,6 +28,7 @@
     "jest-environment-jsdom": "*",
     "jest-extended": "*",
     "jest-mock": "*",
+    "jest-mock-extended": "*",
     "prisma": "*",
     "prisma-zod-generator": "github:yousukeman3/prisma-zod-generator#prisma6",
     "ts-jest": "*",

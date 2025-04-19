@@ -15,27 +15,38 @@ import type { Validator } from '../../../shared/validation/Validator';
  * 口座、現金、電子マネーなどの支払い方法を表す型定義
  */
 export interface IMethod {
-  /** 支払い方法の一意識別子（UUIDv4） */
+  /** 
+   * 支払い方法の一意識別子（UUIDv4）
+   * 
+   * @remarks
+   * UUIDv4形式の文字列。新規作成時は`crypto.randomUUID()`で自動生成される。
+   */
   id: string;
   
   /** 
    * 支払い方法の名前
    * 
+   * @remarks
    * 表示用の名称（「現金」「三井住友銀行」など）
+   * 空でなく、50文字以下である必要がある
    */
   name: string;
   
   /**
    * 初期残高
    * 
+   * @remarks
    * 任意。支払い方法作成時の初期残高を設定可能
+   * 指定された場合はDecimal型に変換されて管理される
    */
-  initialBalance?: number | null;
+  initialBalance?: Decimal | null;
   
   /**
    * アーカイブ状態
    * 
+   * @remarks
    * 使用停止状態かどうか
+   * アーカイブされたMethodは新規Entryで使用不可
    * @defaultValue false
    */
   archived?: boolean;
@@ -44,14 +55,18 @@ export interface IMethod {
 /**
  * Method作成用の入力型
  * 
+ * @remarks
  * IMethodから`id`フィールドを除いた型
+ * 新規作成時にはIDは自動生成されるため不要
  */
 export type MethodCreateInput = Omit<IMethod, 'id'>;
 
 /**
  * Method更新用の入力型
  * 
+ * @remarks
  * IMethodの部分更新用の型
+ * 更新時には変更する項目のみを含む
  */
 export type MethodUpdateInput = Partial<Omit<IMethod, 'id'>>;
 
@@ -59,16 +74,16 @@ export type MethodUpdateInput = Partial<Omit<IMethod, 'id'>>;
  * Methodドメインエンティティクラス
  * 支払い方法を表現し、残高追跡とアーカイブ管理を行うドメインモデル
  */
-export class Method {
+export class Method implements IMethod {
   /**
    * Methodオブジェクトのコンストラクタ
    * 
-   * @param id - 支払い方法の一意識別子
-   * @param name - 支払い方法の表示名称
-   * @param initialBalance - 初期残高（任意）
+   * @param id - 支払い方法の一意識別子（UUIDv4形式）
+   * @param name - 支払い方法の表示名称（空でなく、50文字以内）
+   * @param initialBalance - 初期残高（任意、Decimal型で管理）
    * @param archived - アーカイブ状態（任意、デフォルトは`false`）
    * @param validator - オプションのバリデーター。指定された場合、追加のバリデーションを実行
-   * @throws バリデーション失敗時にBusinessRuleErrorをスローします
+   * @throws {@link BusinessRuleError} バリデーション失敗時にBusinessRuleErrorをスローします
    */
   constructor(
     public readonly id: string,
@@ -105,10 +120,13 @@ export class Method {
    * 入力データからMethodオブジェクトを作成するファクトリーメソッド
    * バリデーションも実施します
    * 
+   * @remarks
+   * IDが指定されていない場合は`crypto.randomUUID()`で自動生成します
+   * 
    * @param data - 支払い方法作成のための入力データ
    * @param validator - オプションのバリデーター。入力データの検証に使用
    * @returns 新しいMethodオブジェクト
-   * @throws バリデーション失敗時にBusinessRuleErrorをスローします
+   * @throws {@link BusinessRuleError} バリデーション失敗時にBusinessRuleErrorをスローします
    */
   static create(
     data: {
@@ -176,9 +194,11 @@ export class Method {
   /**
    * アーカイブされている場合にエラーを投げる
    * @param validator - オプションのバリデーター。アーカイブ状態を検証する
-   * @throws アーカイブされている場合にBusinessRuleErrorをスローします
+   * @throws {@link BusinessRuleError} アーカイブされている場合にBusinessRuleErrorコード`METHOD_ARCHIVED`をスローします
    * 
+   * @remarks
    * 重要な操作の前にこのチェックを行います
+   * Entryの登録時など、アクティブなMethodのみが許可される操作で使用
    */
   ensureActive(validator?: Validator<unknown>): void {
     // アーカイブされているかをチェック（ドメインの不変条件）
@@ -198,6 +218,9 @@ export class Method {
 
   /**
    * アーカイブ状態を変更したMethodオブジェクトを生成
+   * 
+   * @remarks
+   * 不変性を保つため、元のオブジェクトは変更せず新しいインスタンスを返します
    * 
    * @param archived - アーカイブ状態（`true`でアーカイブ）
    * @param validator - オプションのバリデーター
@@ -220,10 +243,14 @@ export class Method {
   /**
    * 名前を変更したMethodオブジェクトを生成
    * 
+   * @remarks
+   * 不変性を保つため、元のオブジェクトは変更せず新しいインスタンスを返します
+   * 名前は空でなく50文字以内である必要があります
+   * 
    * @param name - 新しい名前
    * @param validator - オプションのバリデーター
    * @returns 新しい名前を持つMethodオブジェクト
-   * @throws バリデーション失敗時にBusinessRuleErrorをスローします
+   * @throws {@link BusinessRuleError} バリデーション失敗時にBusinessRuleErrorをスローします
    */
   rename(name: string, validator?: Validator<unknown>): Method {
     if (this.name === name) {
@@ -241,6 +268,10 @@ export class Method {
 
   /**
    * 初期残高を変更した新しいMethodオブジェクトを生成
+   * 
+   * @remarks
+   * 不変性を保つため、元のオブジェクトは変更せず新しいインスタンスを返します
+   * 設定された初期残高はDecimal型に変換されます
    * 
    * @param initialBalance - 新しい初期残高（Decimal、数値または文字列からDecimalに変換、または`null`）
    * @param validator - オプションのバリデーター

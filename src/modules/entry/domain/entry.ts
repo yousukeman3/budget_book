@@ -15,11 +15,22 @@ import type { Validator } from '../../../shared/validation/Validator';
  * 金銭の流れを記録する基本単位の型定義
  */
 export interface IEntry {
-  /** エントリーの一意識別子（UUIDv4） */
+  /** 
+   * エントリーの一意識別子（UUIDv4） 
+   * 
+   * @remarks
+   * UUIDv4形式の文字列。新規作成時は`crypto.randomUUID()`で自動生成される。
+   * すべての操作の追跡や参照に使用される一意の識別子。
+   */
   id: string;
   
   /** 
    * エントリータイプ（収入/支出/借入/貸付/返済/返済受取/振替/初期残高） 
+   * 
+   * @remarks
+   * EntryTypeは金銭の流れの性質を表す列挙型で、`'income'`、`'expense'`など
+   * あらかじめ定義された値のみを取ることができる。
+   * タイプごとに処理ロジックやUIでの表示方法が異なる。
    * {@link EntryType} の値が設定されます
    */
   type: EntryType;
@@ -27,77 +38,109 @@ export interface IEntry {
   /** 
    * 発生日 
    * 
+   * @remarks
    * 金銭の移動が発生した日付（ローカルタイム基準）
+   * 日付はUTC日付からローカルタイムに変換して扱われる
    */
   date: Date;
   
   /** 
    * 金額（正の数）
    * 
-   * 0より大きい数値である必要があります 
+   * @remarks
+   * 0より大きい数値である必要がある
+   * 内部的にはDecimal型で厳密に管理される
    */
-  amount: number;
+  amount: Decimal;
   
-  /** 支払い方法のID（Method.idへの参照） */
+  /** 
+   * 支払い方法のID（Method.idへの参照） 
+   * 
+   * @remarks
+   * UUIDv4形式の文字列で、アクティブな（archived=false）Methodである必要がある
+   * この支払い方法の残高が実際に増減する
+   */
   methodId: string;
   
   /** 
    * カテゴリID（任意、収支系のみ使用） 
    * 
-   * 収入/支出タイプのエントリーで使用されます
+   * @remarks
+   * 収入/支出タイプのエントリーで使用される
+   * UUIDv4形式の文字列で、存在するCategoryを参照する必要がある
+   * レポート生成時のカテゴリ別集計に使用される
    */
   categoryId?: string | null;
   
   /** 
    * 表向きの使途 
    * 
+   * @remarks
    * 集計やUI表示対象となる公開用の目的
+   * 任意入力だが、レポートやフィルタリングに使用される重要な情報
    */
   purpose?: string | null;
   
   /** 
    * 非公開の実際の使途 
    * 
+   * @remarks
    * UI非表示・集計対象外の非公開情報
+   * レポートでは表示されず、必要な場合のみ詳細画面で確認できる
    */
   privatePurpose?: string | null;
   
   /** 
    * 補足情報・文脈情報 
    * 
+   * @remarks
    * タグ、状況、文脈などの自由記述
+   * 検索やフィルタリングに利用可能
    */
   note?: string | null;
   
   /** 
    * 証憑情報 
    * 
-   * アプリ内保存リソースへのURIが格納される場合があります
+   * @remarks
+   * アプリ内保存リソースへのURIが格納される場合がある
+   * URIが含まれる場合は必ず内部リソースを参照する必要がある（外部URLは禁止）
    */
   evidenceNote?: string | null;
   
   /** 
    * 関連する借入/貸付ID 
    * 
+   * @remarks
    * 借入／貸付／返済時に必須となるDebtモデルへの参照
+   * UUIDv4形式の文字列で、type='borrow'/'lend'/'repayment'/'repayment_receive'の場合は必須
    */
   debtId?: string | null;
   
-  /** 作成日時 */
+  /** 
+   * 作成日時 
+   * 
+   * @remarks
+   * このEntryレコードが作成された日時（システム管理用）
+   */
   createdAt: Date;
 }
 
 /**
  * Entry作成用の入力型
  * 
+ * @remarks
  * IEntryから'id'と'createdAt'フィールドを除いた型
+ * 新規作成時にはIDと作成日時は自動生成されるため不要
  */
 export type EntryCreateInput = Omit<IEntry, 'id' | 'createdAt'>;
 
 /**
  * Entry更新用の入力型
  * 
+ * @remarks
  * IEntryから'id'、'createdAt'、'type'フィールドを除いた部分的な型
+ * 作成後に変更不可能な項目は除外されている
  */
 export type EntryUpdateInput = Partial<Omit<IEntry, 'id' | 'createdAt' | 'type'>>;
 
@@ -105,12 +148,15 @@ export type EntryUpdateInput = Partial<Omit<IEntry, 'id' | 'createdAt' | 'type'>
  * Entryのドメインバリデーション実行
  * ビジネスルールに反する場合はBusinessRuleErrorを投げます
  * 
+ * @remarks
+ * このバリデーション関数はEntryの不変条件を確認し、違反があればエラーを発生させます
+ * 
  * @param entry - 検証対象のエントリ
- * @throws ビジネスルール違反時にBusinessRuleErrorをスローします
+ * @throws {@link BusinessRuleError} ビジネスルール違反時にBusinessRuleErrorをスローします
  */
 export function validateEntryBusinessRules(entry: IEntry | EntryCreateInput): void {
   // 金額の検証（正の数であること）
-  if (entry.amount <= 0) {
+  if (entry.amount.isNegative() || entry.amount.isZero()) {
     throw new BusinessRuleError(
       '金額は0より大きい値を入力してください',
       BusinessRuleErrorCode.INVALID_VALUE_RANGE,
@@ -136,7 +182,10 @@ export function validateEntryBusinessRules(entry: IEntry | EntryCreateInput): vo
 /**
  * 収支タイプによってカテゴリが必須かどうかを判定
  * 
- * @param type - エントリータイプ
+ * @remarks
+ * 収入と支出のエントリータイプの場合のみカテゴリ分類が必要
+ * 
+ * @param type - エントリータイプ（EntryType列挙型）
  * @returns カテゴリーが必須の場合true
  */
 export function isCategoryRequired(type: EntryType): boolean {
@@ -146,7 +195,11 @@ export function isCategoryRequired(type: EntryType): boolean {
 /**
  * 収支が借入/貸付系かどうかを判定
  * 
- * @param type - エントリータイプ
+ * @remarks
+ * 借入、貸付、返済、返済受取のいずれかのタイプであれば借入/貸付関連と判定
+ * これらはすべてDebtオブジェクトと関連付けられる必要がある
+ * 
+ * @param type - エントリータイプ（EntryType列挙型）
  * @returns 借入/貸付系の場合true
  */
 export function isDebtRelatedEntry(type: EntryType): boolean {
@@ -157,7 +210,10 @@ export function isDebtRelatedEntry(type: EntryType): boolean {
 /**
  * 収支が振替かどうかを判定
  * 
- * @param type - エントリータイプ
+ * @remarks
+ * 振替タイプの場合はTransferオブジェクトと関連付けられる必要がある
+ * 
+ * @param type - エントリータイプ（EntryType列挙型）
  * @returns 振替の場合true
  */
 export function isTransferEntry(type: EntryType): boolean {
@@ -167,7 +223,10 @@ export function isTransferEntry(type: EntryType): boolean {
 /**
  * 収支が初期残高かどうかを判定
  * 
- * @param type - エントリータイプ
+ * @remarks
+ * 初期残高タイプはMethodの作成時に自動生成される特殊なエントリー
+ * 
+ * @param type - エントリータイプ（EntryType列挙型）
  * @returns 初期残高の場合true
  */
 export function isInitialBalanceEntry(type: EntryType): boolean {
@@ -178,24 +237,24 @@ export function isInitialBalanceEntry(type: EntryType): boolean {
  * Entryドメインエンティティクラス
  * 収支記録の中核となるドメインモデル
  */
-export class Entry {
+export class Entry implements IEntry {
   /**
    * Entryオブジェクトのコンストラクタ
    * 
-   * @param id - エントリの一意識別子
-   * @param type - エントリタイプ
-   * @param date - 発生日
-   * @param amount - 金額（Decimal）
-   * @param methodId - 支払い方法ID
-   * @param categoryId - カテゴリID（任意）
-   * @param purpose - 表向きの使途（任意）
-   * @param privatePurpose - 非公開の使途（任意）
-   * @param note - 補足情報（任意）
-   * @param evidenceNote - 証憑情報（任意）
-   * @param debtId - 関連する借入/貸付ID（任意）
-   * @param createdAt - 作成日時
+   * @param id - エントリの一意識別子（UUIDv4形式）
+   * @param type - エントリタイプ（EntryType列挙型で定義された値）
+   * @param date - 発生日（Date型、ローカルタイム基準）
+   * @param amount - 金額（Decimal型、0より大きい値が必須）
+   * @param methodId - 支払い方法ID（UUIDv4形式、アクティブなMethodの参照）
+   * @param categoryId - カテゴリID（任意、収入/支出タイプの場合に推奨）
+   * @param purpose - 表向きの使途（任意、レポートに表示される）
+   * @param privatePurpose - 非公開の使途（任意、レポートには表示されない）
+   * @param note - 補足情報（任意、検索・フィルタリング可能）
+   * @param evidenceNote - 証憑情報（任意、内部リソース参照のみ許可）
+   * @param debtId - 関連する借入/貸付ID（借入/貸付/返済系タイプの場合は必須）
+   * @param createdAt - 作成日時（デフォルトは現在時刻）
    * @param validator - オプションのバリデーター。指定された場合、追加のバリデーションを実行
-   * @throws バリデーション失敗時にBusinessRuleErrorをスローします
+   * @throws {@link BusinessRuleError} バリデーション失敗時にBusinessRuleErrorをスローします
    */
   constructor(
     public readonly id: string,
@@ -217,7 +276,7 @@ export class Entry {
       id,
       type,
       date,
-      amount: amount.toNumber(), // validateEntryBusinessRulesはnumber型を期待
+      amount: amount, // validateEntryBusinessRulesはnumber型を期待
       methodId,
       categoryId,
       purpose,
@@ -238,10 +297,15 @@ export class Entry {
    * 入力データからEntryオブジェクトを作成するファクトリーメソッド
    * バリデーションも実施します
    * 
+   * @remarks
+   * IDが指定されていない場合は`crypto.randomUUID()`で自動生成します
+   * 金額はDecimal型に変換され、0より大きい値であることが検証されます
+   * 借入/貸付/返済系の場合はdebtIdの指定が必須です
+   * 
    * @param data - エントリ作成のための入力データ
    * @param validator - オプションのバリデーター。入力データの検証に使用
    * @returns 新しいEntryオブジェクト
-   * @throws バリデーション失敗時にBusinessRuleErrorをスローします
+   * @throws {@link BusinessRuleError} バリデーション失敗時にBusinessRuleErrorをスローします
    */
   static create(
     data: {
@@ -307,6 +371,10 @@ export class Entry {
 
   /**
    * このエントリが収入系か判定
+   * 
+   * @remarks
+   * 収入、借入、返済受取の場合は残高が増加するため収入系として扱う
+   * 
    * @returns 収入系の場合true（収入、借入、返済受取）
    */
   isIncome(): boolean {
@@ -317,6 +385,10 @@ export class Entry {
 
   /**
    * このエントリが支出系か判定
+   * 
+   * @remarks
+   * 支出、貸付、返済の場合は残高が減少するため支出系として扱う
+   * 
    * @returns 支出系の場合true（支出、貸付、返済）
    */
   isExpense(): boolean {
@@ -327,6 +399,10 @@ export class Entry {
 
   /**
    * このエントリが転送系か判定
+   * 
+   * @remarks
+   * 振替タイプの場合はTransferオブジェクトと関連付けられる
+   * 
    * @returns 振替の場合true
    */
   isTransfer(): boolean {
@@ -335,6 +411,10 @@ export class Entry {
 
   /**
    * このエントリが初期残高か判定
+   * 
+   * @remarks
+   * 初期残高タイプはMethodの作成時に自動生成される特殊なエントリー
+   * 
    * @returns 初期残高の場合true
    */
   isInitialBalance(): boolean {
@@ -343,6 +423,10 @@ export class Entry {
 
   /**
    * このエントリが貸借系か判定
+   * 
+   * @remarks
+   * 借入、貸付、返済、返済受取のいずれかの場合、Debtオブジェクトと関連付けられる
+   * 
    * @returns 貸借関連の場合true（借入、貸付、返済、返済受取）
    */
   isDebtRelated(): boolean {
@@ -354,10 +438,14 @@ export class Entry {
 
   /**
    * Method残高への影響額を計算
-   * @returns 残高への影響額（Decimal）。収入系ならプラス、支出系ならマイナス
    * 
-   * 振替の場合は、このメソッドだけでは完全な影響を判断できません。
-   * entryId=rootEntryIdのTransferを参照してfromMethod/toMethodどちらかを確認する必要があります。
+   * @remarks
+   * このメソッドは指定されたmethodIdの残高にどのような影響を与えるかを計算します
+   * 収入系はプラス、支出系はマイナスの影響を与えます
+   * 振替の場合は、このメソッドだけでは完全な影響を判断できず、
+   * 追加でTransferオブジェクトの参照が必要です
+   * 
+   * @returns 残高への影響額（Decimal）。収入系ならプラス、支出系ならマイナス
    */
   getBalanceImpact(): Decimal {
     // 収入系は残高増加（プラス）
